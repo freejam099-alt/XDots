@@ -34,7 +34,7 @@ class MessageLookup extends MessageLookupByLibrary {
         "alias_required": MessageLookupByLibrary.simpleMessage("별칭(필수)"),
         "apikey_repeat":
             MessageLookupByLibrary.simpleMessage("ApiKey를 중복해서 사용할 수 없습니다"),
-        "app_name": MessageLookupByLibrary.simpleMessage("ChatBot"),
+        "app_name": MessageLookupByLibrary.simpleMessage("XDots"),
         "appearance": MessageLookupByLibrary.simpleMessage("외관"),
         "author": MessageLookupByLibrary.simpleMessage("저자"),
         "auto_title": MessageLookupByLibrary.simpleMessage("제목 자동 생성"),

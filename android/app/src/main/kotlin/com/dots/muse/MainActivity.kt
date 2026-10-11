@@ -1,4 +1,4 @@
-package work.newtab.chatbot.chatbot
+package com.dots.muse
 
 import io.flutter.embedding.android.FlutterActivity
 

@@ -52,7 +52,7 @@ class ICloudAsync {
       }
       try {
         await ICloudStorage.delete(
-          containerId: 'iCloud.top.achatbot.models',
+          containerId: 'iCloud.com.dots.muse.models',
           relativePath: 'allModels',
         );
       } catch (e) {
@@ -61,7 +61,7 @@ class ICloudAsync {
       //同步到云端
       await ICloudStorage.upload(
         filePath: localPath,
-        containerId: 'iCloud.top.achatbot.models',
+        containerId: 'iCloud.com.dots.muse.models',
         destinationRelativePath: 'allModels',
         onProgress: (stream) {
           uploadProgressSub = stream.listen(
@@ -118,7 +118,7 @@ class ICloudAsync {
 
       //先判断这个文件在不在 icloud 上面
       final fileList = await ICloudStorage.gather(
-        containerId: 'iCloud.top.achatbot.models',
+        containerId: 'iCloud.com.dots.muse.models',
         onUpdate: (stream) {
           filesUpdateSub = stream.listen((updatedFileList) {
             for (var file in updatedFileList) {
@@ -133,7 +133,7 @@ class ICloudAsync {
 
       //获取 icloud 上的数据
       await ICloudStorage.download(
-        containerId: 'iCloud.top.achatbot.models',
+        containerId: 'iCloud.com.dots.muse.models',
         relativePath: 'allModels',
         destinationFilePath: localPath,
         onProgress: (stream) {
@@ -246,7 +246,7 @@ class ICloudAsync {
     }
     try {
       await ICloudStorage.delete(
-        containerId: 'iCloud.top.achatbot.models',
+        containerId: 'iCloud.com.dots.muse.models',
         relativePath: 'allModels',
       );
     } catch (e) {
@@ -255,7 +255,7 @@ class ICloudAsync {
     //同步到云端
     await ICloudStorage.upload(
       filePath: localPath,
-      containerId: 'iCloud.top.achatbot.models',
+      containerId: 'iCloud.com.dots.muse.models',
       destinationRelativePath: 'allModels',
       onProgress: (stream) {
         uploadProgressSub = stream.listen(

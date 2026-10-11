@@ -86,6 +86,10 @@ flutter:
     - assets/command.json
     - assets/images/
     - assets/lottie/
+  fonts:
+    - family: XDot
+      fonts:
+        - asset: assets/fonts/XDot.ttf
 flutter_intl:
   enabled: true
 

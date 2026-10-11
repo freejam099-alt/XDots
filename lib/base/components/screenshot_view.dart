@@ -91,7 +91,7 @@ class ScreenShotChatPage extends ConsumerWidget {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              "Made by CChatBot",
+                              "Made by XDots",
                               style: TextStyle(
                                 color: Theme.of(context).primaryColor,
                                 fontSize: 18,
@@ -204,7 +204,7 @@ class ScreenShotChatImagePage extends ConsumerWidget {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              "Made by CChatBot",
+                              "Made by XDots",
                               style: TextStyle(
                                 color: Theme.of(context).primaryColor,
                                 fontSize: 18,

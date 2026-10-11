@@ -1,5 +1,7 @@
+import 'package:chat_bot/module/claude/app_theme.dart';
 import 'package:chat_bot/module/splash_page.dart';
 import 'package:chat_bot/utils/hive_box.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 
 import 'base.dart';
@@ -35,6 +37,15 @@ class MyApp extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     var globalLanguage = ref.watch(globalLanguageProvider);
     var primaryColor = ref.watch(primaryColorProvider);
+    final ThemeData lightTheme =
+        ref.watch(themeProvider).theme(primaryColor).copyWith(
+      extensions: const <ThemeExtension<dynamic>>[AppColors.light],
+    );
+    final bool isDark =
+        MediaQuery.platformBrightnessOf(context) == Brightness.dark;
+    final ThemeData darkTheme = ThemeData.dark().copyWith(
+      extensions: const <ThemeExtension<dynamic>>[AppColors.dark],
+    );
     return MaterialApp(
       key: ValueKey(globalLanguage),
       navigatorKey: F.navigatorKey,
@@ -46,7 +57,13 @@ class MyApp extends ConsumerWidget {
         return supportedLocales.first;
       },
       debugShowCheckedModeBanner: false,
-      theme: ref.watch(themeProvider).theme(primaryColor),
+      theme: isDark
+          ? lightTheme.copyWith(
+              extensions:
+                  const <ThemeExtension<dynamic>>[AppColors.dark])
+          : lightTheme,
+      darkTheme: darkTheme,
+      themeMode: ThemeMode.system,
       localizationsDelegates: const [
         S.delegate,
         GlobalMaterialLocalizations.delegate,

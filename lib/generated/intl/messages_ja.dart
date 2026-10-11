@@ -35,7 +35,7 @@ class MessageLookup extends MessageLookupByLibrary {
         "alias_required": MessageLookupByLibrary.simpleMessage("エイリアス（必須）"),
         "apikey_repeat":
             MessageLookupByLibrary.simpleMessage("ApiKey を繰り返すことはできません。"),
-        "app_name": MessageLookupByLibrary.simpleMessage("ChatBot"),
+        "app_name": MessageLookupByLibrary.simpleMessage("XDots"),
         "appearance": MessageLookupByLibrary.simpleMessage("外観"),
         "author": MessageLookupByLibrary.simpleMessage("作者"),
         "auto_title": MessageLookupByLibrary.simpleMessage("タイトルを自動生成"),

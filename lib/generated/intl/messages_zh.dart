@@ -30,7 +30,7 @@ class MessageLookup extends MessageLookupByLibrary {
         "alias_repeat": MessageLookupByLibrary.simpleMessage("别名不可以重复"),
         "alias_required": MessageLookupByLibrary.simpleMessage("别名(必填)"),
         "apikey_repeat": MessageLookupByLibrary.simpleMessage("ApiKey不可以重复"),
-        "app_name": MessageLookupByLibrary.simpleMessage("ChatBot"),
+        "app_name": MessageLookupByLibrary.simpleMessage("XDots"),
         "appearance": MessageLookupByLibrary.simpleMessage("外观"),
         "author": MessageLookupByLibrary.simpleMessage("作者"),
         "auto_title": MessageLookupByLibrary.simpleMessage("自动生成标题"),

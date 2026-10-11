@@ -1,17 +1,14 @@
 import 'package:chat_bot/base.dart';
 import 'package:chat_bot/base/version_check.dart';
-import 'package:chat_bot/module/chat/chat_audio/chat_audio_page.dart';
-import 'package:chat_bot/module/chat/chat_list_page.dart';
+import 'package:chat_bot/module/claude/app_theme.dart';
+import 'package:chat_bot/module/claude/chat_screen.dart';
+import 'package:chat_bot/module/claude/ruang_kreasi.dart';
+import 'package:chat_bot/module/claude/widgets/floating_pill_navbar.dart';
+import 'package:chat_bot/module/claude/widgets/vector_icons.dart';
 import 'package:chat_bot/module/home/home_viewmodel.dart';
-import 'package:lottie/lottie.dart';
 
-import '../../base/components/common_dialog.dart';
-import '../../base/components/lottie_widget.dart';
-import '../../base/db/chat_item.dart';
 import '../../base/theme.dart';
 import '../../const.dart';
-import '../../hive_bean/openai_bean.dart';
-import '../chat/chat_list_view_model.dart';
 import '../prompt/prompt_page.dart';
 import '../services/services_page.dart';
 import '../setting/setting_page.dart';
@@ -23,7 +20,41 @@ class HomePage extends ConsumerStatefulWidget {
   ConsumerState createState() => _HomePageState();
 }
 
-class _HomePageState extends ConsumerState<HomePage> with WidgetsBindingObserver {
+class _HomePageState extends ConsumerState<HomePage>
+    with WidgetsBindingObserver {
+  /// Provider 0..3 -> pill 0,1,3,4 (2 = Ruang Kreasi).
+  int _toPillIndex(int providerIndex) {
+    switch (providerIndex) {
+      case 0:
+        return 0;
+      case 1:
+        return 1;
+      case 2:
+        return 3;
+      default:
+        return 4;
+    }
+  }
+
+  void _onPillTap(int pillIndex) {
+    if (pillIndex == 2) {
+      // Tengah = Ruang Kreasi: ganti model + atur tools.
+      openRuangKreasi(context);
+      return;
+    }
+    int providerIndex = 0;
+    if (pillIndex == 0) {
+      providerIndex = 0;
+    } else if (pillIndex == 1) {
+      providerIndex = 1;
+    } else if (pillIndex == 3) {
+      providerIndex = 2;
+    } else {
+      providerIndex = 3;
+    }
+    ref.read(homeIndexProvider.notifier).update((state) => providerIndex);
+  }
+
   @override
   void initState() {
     super.initState();
@@ -40,7 +71,8 @@ class _HomePageState extends ConsumerState<HomePage> with WidgetsBindingObserver
 
     var brightness = View.of(context).platformDispatcher.platformBrightness;
 
-    if (SpUtil.getInt(spLightTheme, defValue: ThemeType.system.index) != ThemeType.system.index) {
+    if (SpUtil.getInt(spLightTheme, defValue: ThemeType.system.index) !=
+        ThemeType.system.index) {
       return;
     }
 
@@ -61,157 +93,43 @@ class _HomePageState extends ConsumerState<HomePage> with WidgetsBindingObserver
   Widget build(BuildContext context) {
     var currentIndex = ref.watch(homeIndexProvider);
 
+    // Navbar hanya icon, tanpa nama.
+    const navIcons = [
+      ChatVectorIcon(),
+      LibraryVectorIcon(),
+      MicVectorIcon(),
+      ServerVectorIcon(),
+      SettingVectorIcon(),
+    ];
+
     return Scaffold(
       extendBody: true,
       body: IndexedStack(
         index: currentIndex,
-        children: const [
-          ChatListPage(),
-          PromptPage(),
-          ServicesPage(),
-          SettingPage(),
+        children: [
+          ClaudeChatScreen(
+            navIcons: navIcons,
+            navIndex: _toPillIndex(currentIndex),
+            onNavTap: _onPillTap,
+            embedded: true,
+          ),
+          const PromptPage(),
+          const ServicesPage(),
+          const SettingPage(),
         ],
       ),
-      bottomNavigationBar: Container(
-        color: Colors.transparent,
-        child: SizedBox(
-          height: kBottomNavigationBarHeight + MediaQuery.paddingOf(context).bottom + kBottomNavigationBarHeight / 2,
-          child: CustomPaint(
-            painter: BottomNavPainter(
-              bgColor: Theme.of(context).cardColor,
-            ),
-            child: Padding(
-              padding:
-                  EdgeInsets.only(bottom: MediaQuery.paddingOf(context).bottom, top: kBottomNavigationBarHeight / 2),
-              child: Row(
-                children: [
-                  Expanded(
-                      child: BottomNavItem(
-                    label: S.current.home_chat,
-                    index: 0,
-                    checked: currentIndex == 0,
-                  )),
-                  Expanded(
-                      child: BottomNavItem(
-                    label: S.current.home_factory,
-                    index: 1,
-                    checked: currentIndex == 1,
-                  )),
-                  GestureDetector(
-                    onTap: () {
-                      if (!isExistModels()) {
-                        showCommonDialog(
-                          context,
-                          title: S.current.reminder,
-                          content: S.current.enter_setting_init_server,
-                          hideCancelBtn: true,
-                          autoPop: true,
-                          confirmText: S.current.yes_know,
-                          confirmCallback: () {},
-                        );
-                        return;
-                      }
-                      if (!isExistTTSAndWhisperModels()) {
-                        showCommonDialog(
-                          context,
-                          title: S.current.reminder,
-                          content: S.current.not_support_tts,
-                          hideCancelBtn: true,
-                          autoPop: true,
-                          confirmText: S.current.yes_know,
-                          confirmCallback: () {},
-                        );
-                        return;
-                      }
-                      F.push(const ChatAudioPage()).then((value) {
-                        ChatItemProvider().deleteAll(specialGenerateAudioChatParentItemTime);
-                      });
-                    },
-                    behavior: HitTestBehavior.opaque,
-                    child: const LottieWidget(
-                      scale: 2.4,
-                      transformHitTests: false,
-                      width: 80,
-                    ),
-                  ),
-                  Expanded(
-                      child: BottomNavItem(
-                    label: S.current.home_server,
-                    index: 2,
-                    checked: currentIndex == 2,
-                  )),
-                  Expanded(
-                      child: BottomNavItem(
-                    label: S.current.home_setting,
-                    index: 3,
-                    checked: currentIndex == 3,
-                  )),
-                ],
-              ),
-            ),
-          ),
+      bottomNavigationBar: Padding(
+        padding: EdgeInsets.only(
+          top: currentIndex == 0 ? AppDims.inputGapToNav : 0,
+          bottom:
+              AppDims.pillBottomGap + MediaQuery.paddingOf(context).bottom,
+        ),
+        child: FloatingPillNavbar(
+          icons: navIcons,
+          currentIndex: _toPillIndex(currentIndex),
+          onTap: _onPillTap,
         ),
       ),
     );
-  }
-}
-
-class BottomNavItem extends ConsumerWidget {
-  final bool checked;
-  final int index;
-  final String label;
-
-  const BottomNavItem({super.key, required this.checked, required this.index, required this.label});
-
-  @override
-  Widget build(BuildContext context, ref) {
-    return GestureDetector(
-      onTap: () {
-        ref.read(homeIndexProvider.notifier).update((state) => index);
-      },
-      behavior: HitTestBehavior.opaque,
-      child: Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Text(label,
-                style: checked ? Theme.of(context).textTheme.titleMedium : Theme.of(context).textTheme.bodyMedium),
-            const SizedBox(height: 5),
-            Container(
-              decoration: BoxDecoration(
-                color: checked ? Theme.of(context).primaryColor : Colors.transparent,
-                borderRadius: BorderRadius.circular(5),
-              ),
-              height: 3,
-              width: 30,
-            )
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class BottomNavPainter extends CustomPainter {
-  final Color bgColor;
-
-  BottomNavPainter({this.bgColor = Colors.white});
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    //绘制矩形，然后顶部中间是个半圆
-    Paint paint = Paint()
-      ..color = bgColor
-      ..style = PaintingStyle.fill;
-
-    canvas.drawRect(Rect.fromLTRB(0, kBottomNavigationBarHeight / 2, size.width, size.height), paint);
-
-    canvas.drawCircle(Offset(size.width / 2, kBottomNavigationBarHeight), kBottomNavigationBarHeight / 1.35, paint);
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) {
-    return true;
   }
 }
