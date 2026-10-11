@@ -454,7 +454,7 @@ class _ClaudeChatScreenState extends State<ClaudeChatScreen> {
     if (_messages.isEmpty && !_streaming && !_typing) {
       return Center(
         child: Text(
-          'Start a new conversation',
+          'Mulai percakapan baru',
           style: TextStyle(fontSize: 15, color: c.textMuted),
         ),
       );

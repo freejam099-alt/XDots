@@ -93,11 +93,11 @@ class _HomePageState extends ConsumerState<HomePage>
   Widget build(BuildContext context) {
     var currentIndex = ref.watch(homeIndexProvider);
 
-    // Navbar hanya icon, tanpa nama.
+    // Navbar hanya icon, tanpa nama. Tengah = mic Ruang Kreasi.
     const navIcons = [
       ChatVectorIcon(),
       LibraryVectorIcon(),
-      MicVectorIcon(),
+      VoiceVectorIcon(),
       ServerVectorIcon(),
       SettingVectorIcon(),
     ];

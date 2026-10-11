@@ -111,7 +111,7 @@ class _CircleIconButtonState extends State<_CircleIconButton> {
 }
 
 /// Popup kecil untuk icon hapus: teks "Delete Message" (aksi) dan
-/// "Tools Calls (Coming Soon)" (info).
+/// "Tools Calls (Segera Hadir)" (info).
 Future<void> _showDeletePopup(
     BuildContext context, VoidCallback onDeleteMessages) {
   final AppColors c = AppColors.of(context);
@@ -146,7 +146,7 @@ Future<void> _showDeletePopup(
                     children: [
                       NewChatVectorIcon(size: 20),
                       SizedBox(width: 10),
-                      Text('Delete Message',
+                      Text('Hapus Pesan',
                           style: TextStyle(
                               fontSize: 15, color: c.textPrimary)),
                     ],
@@ -159,7 +159,7 @@ Future<void> _showDeletePopup(
                   children: [
                     const ToolVectorIcon(size: 18),
                     const SizedBox(width: 10),
-                    Text('Tools Calls (Coming Soon)',
+                    Text('Tools Calls (Segera Hadir)',
                         style: TextStyle(
                             fontSize: 15, color: c.textMuted)),
                   ],

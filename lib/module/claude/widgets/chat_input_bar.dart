@@ -105,7 +105,7 @@ class ChatInputBar extends StatefulWidget {
     required this.onMicTap,
     required this.plusIcon,
     required this.micIcon,
-    this.hint = 'Message',
+    this.hint = 'Pesan',
     this.onAttach,
   });
 
@@ -184,12 +184,12 @@ class _ChatInputBarState extends State<ChatInputBar> {
               children: [
                 _AttachRow(
                     icon: const PhotoVectorIcon(),
-                    label: 'Photo',
+                    label: 'Foto',
                     onTap: () =>
                         Navigator.of(context).pop(AttachKind.photo)),
                 _AttachRow(
                     icon: const CameraVectorIcon(),
-                    label: 'Camera',
+                    label: 'Kamera',
                     onTap: () =>
                         Navigator.of(context).pop(AttachKind.camera)),
                 _AttachRow(
@@ -199,7 +199,7 @@ class _ChatInputBarState extends State<ChatInputBar> {
                         Navigator.of(context).pop(AttachKind.video)),
                 _AttachRow(
                     icon: const FileVectorIcon(),
-                    label: 'File',
+                    label: 'Berkas',
                     onTap: () =>
                         Navigator.of(context).pop(AttachKind.file)),
               ],
