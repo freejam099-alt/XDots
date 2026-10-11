@@ -92,47 +92,62 @@ class _HomePageState extends ConsumerState<HomePage>
     final bool kbOpen =
         MediaQuery.of(context).viewInsets.bottom > 0;
 
-    // Navbar hanya icon, tanpa nama. Tengah = mic Ruang Kreasi.
+    // Navbar hanya icon, tanpa nama. Tengah = Ruang Kreasi (bohlam asli).
     const navIcons = [
       ChatVectorIcon(),
       LibraryVectorIcon(),
-      VoiceVectorIcon(),
+      MicVectorIcon(),
       ServerVectorIcon(),
       SettingVectorIcon(),
     ];
 
+    final AppColors c = AppColors.of(context);
+
+    // Layout deterministik: Column(Expanded(konten), navbar).
+    // Navbar SELALU menempel di bawah, input bar chat berada di dasar
+    // area konten tepat di atas navbar. Tanpa extendBody / Positioned.
     return Scaffold(
-      extendBody: true,
-      body: IndexedStack(
-        sizing: StackFit.expand,
-        index: currentIndex,
-        children: [
-          ClaudeChatScreen(
-            navIcons: navIcons,
-            navIndex: _toPillIndex(currentIndex),
-            onNavTap: _onPillTap,
-            embedded: true,
-          ),
-          const PromptPage(),
-          const ServerPanel(),
-          const SettingPage(),
-        ],
-      ),
-      bottomNavigationBar: kbOpen
-          ? const SizedBox.shrink()
-          : Padding(
-              padding: EdgeInsets.only(
-                top: currentIndex == 0 ? AppDims.inputGapToNav : 0,
-                bottom: AppDims.pillBottomGap +
-                    8.0 +
-                    MediaQuery.paddingOf(context).bottom,
-              ),
-              child: FloatingPillNavbar(
-                icons: navIcons,
-                currentIndex: _toPillIndex(currentIndex),
-                onTap: _onPillTap,
+      backgroundColor: c.bgBase,
+      body: DecoratedBox(
+        decoration: BoxDecoration(
+          color: c.bgBase,
+          gradient: currentIndex == 0 ? c.bgGradientBottom : null,
+        ),
+        child: Column(
+          children: [
+            Expanded(
+              child: IndexedStack(
+                sizing: StackFit.expand,
+                index: currentIndex,
+                children: [
+                  ClaudeChatScreen(
+                    navIcons: navIcons,
+                    navIndex: _toPillIndex(currentIndex),
+                    onNavTap: _onPillTap,
+                    embedded: true,
+                  ),
+                  const PromptPage(),
+                  const ServerPanel(),
+                  const SettingPage(),
+                ],
               ),
             ),
+            if (!kbOpen)
+              Padding(
+                padding: EdgeInsets.only(
+                  top: currentIndex == 0 ? AppDims.inputGapToNav : 0,
+                  bottom: AppDims.pillBottomGap +
+                      MediaQuery.paddingOf(context).bottom,
+                ),
+                child: FloatingPillNavbar(
+                  icons: navIcons,
+                  currentIndex: _toPillIndex(currentIndex),
+                  onTap: _onPillTap,
+                ),
+              ),
+          ],
+        ),
+      ),
     );
   }
 }

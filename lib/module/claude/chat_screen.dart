@@ -401,13 +401,16 @@ class _ClaudeChatScreenState extends State<ClaudeChatScreen> {
       child: Stack(
         fit: StackFit.expand,
         children: [
-          Positioned.fill(
-            child: Container(
-              decoration: BoxDecoration(
-                gradient: c.bgGradientBottom,
+          // Mode embedded: gradient dilukis oleh HomePage (satu latar
+          // untuk chat + navbar, tanpa sambungan).
+          if (!widget.embedded)
+            Positioned.fill(
+              child: Container(
+                decoration: BoxDecoration(
+                  gradient: c.bgGradientBottom,
+                ),
               ),
             ),
-          ),
           Positioned.fill(
             child: SafeArea(
               bottom: false,
@@ -433,7 +436,7 @@ class _ClaudeChatScreenState extends State<ClaudeChatScreen> {
                       plusIcon: const PlusIcon32(),
                       micIcon: const VoiceVectorIcon(size: 22),
                     ),
-                  if (!widget.hideInputBar)
+                  if (!widget.hideInputBar && !widget.embedded)
                     const SizedBox(height: AppDims.inputGapToNav),
                   // Navbar disembunyikan saat keyboard terbuka agar
                   // tidak overflow / tertutup keyboard.
@@ -447,7 +450,6 @@ class _ClaudeChatScreenState extends State<ClaudeChatScreen> {
                     SizedBox(
                         height:
                             AppDims.pillBottomGap + bottomSafe),
-                  if (widget.embedded) SizedBox(height: bottomSafe),
                 ],
               ),
             ),
