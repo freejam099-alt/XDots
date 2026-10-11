@@ -7,13 +7,13 @@ import 'package:flutter/material.dart';
 import 'package:loading_animation_widget/loading_animation_widget.dart';
 
 import '../../../utils/extension_string.dart';
-import '../app_theme.dart';
-import '../chat_data.dart';
-import '../model_store.dart';
+import 'app_theme.dart';
+import 'chat_data.dart';
+import 'model_store.dart';
 import '../services/services_page.dart';
 import '../setting/openai/openai_list_page.dart';
-import 'provider_rows.dart';
-import 'vector_icons.dart';
+import 'widgets/provider_rows.dart';
+import 'widgets/vector_icons.dart';
 
 /// Panel Server gaya Muse (gelap/terang ikut tema):
 /// 3 grup provider — Model AI, Search Service, MCP —
