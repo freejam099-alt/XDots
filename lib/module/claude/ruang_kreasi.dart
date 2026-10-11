@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 
 import 'app_theme.dart';
 import 'chat_data.dart';
-import 'model_fetch_page.dart';
+import 'server_panel.dart';
 import 'model_store.dart';
 import 'widgets/tool_card.dart';
 import 'widgets/vector_icons.dart';
@@ -18,14 +18,30 @@ String _t(BuildContext context, String id, String en, String zh) {
   return id;
 }
 
-/// Ruang Kreasi: ganti Model Chat/Gambar/Video default + atur tools.
+/// Ruang Kreasi: drawer geser dari KANAN (cermin History di kiri).
+/// Ganti Model Chat/Gambar/Video default + atur tools.
 /// Dibuka dari tombol tengah navbar dan icon mic.
 Future<void> openRuangKreasi(BuildContext context) {
-  return showModalBottomSheet(
+  return showGeneralDialog(
     context: context,
-    backgroundColor: Colors.transparent,
-    isScrollControlled: true,
-    builder: (context) => const _RuangKreasiSheet(),
+    barrierDismissible: true,
+    barrierLabel: 'Ruang Kreasi',
+    barrierColor: Colors.black.withOpacity(0.35),
+    transitionDuration: AppDims.animNav,
+    pageBuilder: (ctx, _, __) => const _RuangKreasiDrawer(),
+    transitionBuilder: (ctx, anim, _, child) {
+      final CurvedAnimation curved = CurvedAnimation(
+        parent: anim,
+        curve: Curves.easeOutCubic,
+      );
+      return SlideTransition(
+        position: Tween<Offset>(
+          begin: const Offset(1, 0),
+          end: Offset.zero,
+        ).animate(curved),
+        child: FadeTransition(opacity: curved, child: child),
+      );
+    },
   );
 }
 
@@ -71,35 +87,57 @@ List<_ModelOption> _videoOptions() {
   ];
 }
 
-class _RuangKreasiSheet extends StatefulWidget {
-  const _RuangKreasiSheet();
+class _RuangKreasiDrawer extends StatefulWidget {
+  const _RuangKreasiDrawer();
 
   @override
-  State<_RuangKreasiSheet> createState() => _RuangKreasiSheetState();
+  State<_RuangKreasiDrawer> createState() => _RuangKreasiDrawerState();
 }
 
-class _RuangKreasiSheetState extends State<_RuangKreasiSheet> {
+class _RuangKreasiDrawerState extends State<_RuangKreasiDrawer> {
   @override
   Widget build(BuildContext context) {
-    return DraggableScrollableSheet(
-      initialChildSize: 0.85,
-      minChildSize: 0.5,
-      maxChildSize: 0.95,
-      builder: (context, scrollController) {
-        final AppColors c = AppColors.of(context);
-        return DefaultTextStyle(
-          style: const TextStyle(fontFamily: AppDims.fontFamily),
-          child: Container(
-            decoration: BoxDecoration(
-              color: c.surface,
-              borderRadius:
-                  const BorderRadius.vertical(top: Radius.circular(26)),
-              boxShadow: [c.shadowFloat],
+    final AppColors c = AppColors.of(context);
+    final double width = (MediaQuery.of(context).size.width * 0.85)
+        .clamp(0.0, 360.0)
+        .toDouble();
+    return DefaultTextStyle(
+      style: const TextStyle(fontFamily: AppDims.fontFamily),
+      child: Align(
+        alignment: Alignment.centerRight,
+        child: Container(
+          width: width,
+          height: double.infinity,
+          decoration: BoxDecoration(
+            color: c.surface,
+            borderRadius: const BorderRadius.only(
+              topLeft: Radius.circular(26),
+              bottomLeft: Radius.circular(26),
             ),
-          child: ListView(
-            controller: scrollController,
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
-            children: [
+            boxShadow: [c.shadowFloat],
+          ),
+          child: _RuangKreasiList(),
+        ),
+      ),
+    );
+  }
+}
+
+class _RuangKreasiList extends StatefulWidget {
+  const _RuangKreasiList();
+
+  @override
+  State<_RuangKreasiList> createState() => _RuangKreasiListState();
+}
+
+class _RuangKreasiListState extends State<_RuangKreasiList> {
+  @override
+  Widget build(BuildContext context) {
+    final AppColors c = AppColors.of(context);
+    return SafeArea(
+      child: ListView(
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+        children: [
               Center(
                 child: Container(
                   width: 40,
@@ -166,7 +204,7 @@ class _RuangKreasiSheetState extends State<_RuangKreasiSheet> {
                   Navigator.of(context).pop();
                   Navigator.of(context).push(
                     MaterialPageRoute(
-                        builder: (_) => const ModelFetchPage()),
+                        builder: (_) => const ServerPanel()),
                   );
                 },
                 child: Container(
@@ -234,10 +272,7 @@ class _RuangKreasiSheetState extends State<_RuangKreasiSheet> {
                 _McpToggleRow(label: id, id: id, custom: true),
               _AddCustomMcpRow(onAdded: () => setState(() {})),
             ],
-          ),
-        ),
-        );
-      },
+      ),
     );
   }
 }

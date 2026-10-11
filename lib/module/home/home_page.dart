@@ -1,8 +1,8 @@
 import 'package:chat_bot/base.dart';
-import 'package:chat_bot/base/version_check.dart';
 import 'package:chat_bot/module/claude/app_theme.dart';
 import 'package:chat_bot/module/claude/chat_screen.dart';
 import 'package:chat_bot/module/claude/ruang_kreasi.dart';
+import 'package:chat_bot/module/claude/server_panel.dart';
 import 'package:chat_bot/module/claude/widgets/floating_pill_navbar.dart';
 import 'package:chat_bot/module/claude/widgets/vector_icons.dart';
 import 'package:chat_bot/module/home/home_viewmodel.dart';
@@ -10,7 +10,6 @@ import 'package:chat_bot/module/home/home_viewmodel.dart';
 import '../../base/theme.dart';
 import '../../const.dart';
 import '../prompt/prompt_page.dart';
-import '../services/services_page.dart';
 import '../setting/setting_page.dart';
 
 class HomePage extends ConsumerStatefulWidget {
@@ -59,10 +58,8 @@ class _HomePageState extends ConsumerState<HomePage>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-
-    WidgetsBinding.instance.addPostFrameCallback((timeStamp) {
-      VersionCheck().checkLastedVersion(context);
-    });
+    // VersionCheck repo lama dimatikan: menagih update + link
+    // Github orang (ChatBot-All), tidak berlaku untuk XDots.
   }
 
   @override
@@ -114,15 +111,16 @@ class _HomePageState extends ConsumerState<HomePage>
             embedded: true,
           ),
           const PromptPage(),
-          const ServicesPage(),
+          const ServerPanel(),
           const SettingPage(),
         ],
       ),
       bottomNavigationBar: Padding(
         padding: EdgeInsets.only(
           top: currentIndex == 0 ? AppDims.inputGapToNav : 0,
-          bottom:
-              AppDims.pillBottomGap + MediaQuery.paddingOf(context).bottom,
+          bottom: AppDims.pillBottomGap +
+              8.0 +
+              MediaQuery.paddingOf(context).bottom,
         ),
         child: FloatingPillNavbar(
           icons: navIcons,

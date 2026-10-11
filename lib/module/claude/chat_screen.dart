@@ -391,12 +391,9 @@ class _ClaudeChatScreenState extends State<ClaudeChatScreen> {
   Widget build(BuildContext context) {
     applySystemUi(context);
     final double bottomSafe = MediaQuery.of(context).padding.bottom;
-    return Scaffold(
-      backgroundColor: c.bgBase,
-      extendBody: true,
-      body: DefaultTextStyle(
-        style: const TextStyle(fontFamily: AppDims.fontFamily),
-        child: Stack(
+    final Widget content = DefaultTextStyle(
+      style: const TextStyle(fontFamily: AppDims.fontFamily),
+      child: Stack(
         children: [
           Container(
             decoration: BoxDecoration(
@@ -445,8 +442,15 @@ class _ClaudeChatScreenState extends State<ClaudeChatScreen> {
             ),
           ),
         ],
-        ),
       ),
+    );
+    // Mode embedded: tanpa Scaffold dalam (satu Scaffold milik Home)
+    // agar tidak ada nested-Scaffold yang mengacaukan layout.
+    if (widget.embedded) return content;
+    return Scaffold(
+      backgroundColor: c.bgBase,
+      extendBody: true,
+      body: content,
     );
   }
 

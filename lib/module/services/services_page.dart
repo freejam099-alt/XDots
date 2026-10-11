@@ -1,8 +1,5 @@
 import 'package:chat_bot/base.dart';
 import 'package:chat_bot/hive_bean/local_chat_history.dart';
-import 'package:chat_bot/module/claude/chat_data.dart';
-import 'package:chat_bot/module/claude/model_store.dart';
-import 'package:chat_bot/module/claude/widgets/vector_icons.dart';
 import 'package:chat_bot/module/setting/ollama/ollama_add_page.dart';
 
 import '../setting/gemini/gemini_viewmodel.dart';
@@ -11,6 +8,7 @@ import '../setting/openai/openai_viewmodel.dart';
 import '../setting/setting_page.dart';
 
 /// Nama provider mengikuti bahasa perangkat (id default, en, zh).
+/// Memperbaiki nama hardcoded Cina agar adaptif.
 String _srvName(BuildContext context, String id, String en, String zh) {
   final String code =
       Localizations.localeOf(context).languageCode.toLowerCase();
@@ -18,9 +16,6 @@ String _srvName(BuildContext context, String id, String en, String zh) {
   if (code == 'en') return en;
   return id;
 }
-
-String _srvGroup(BuildContext context, String id, String en, String zh) =>
-    _srvName(context, id, en, zh);
 
 class ServicesPage extends ConsumerStatefulWidget {
   const ServicesPage({super.key});
@@ -47,11 +42,6 @@ class _ServicesPageState extends ConsumerState<ServicesPage> {
             children: [
               const SizedBox(
                 height: 15,
-              ),
-              _ServerGroupHeader(
-                title: _srvGroup(context, 'Model AI', 'AI Models',
-                    'AI模型'),
-                icon: const GeminiVectorIcon(size: 22),
               ),
               Consumer(builder: (context, ref, _) {
                 return SettingWithTitle(
@@ -213,19 +203,6 @@ class _ServicesPageState extends ConsumerState<ServicesPage> {
                   }),
                 );
               }),
-              _ServerGroupHeader(
-                title: _srvGroup(context, 'Search Service',
-                    'Search Service', '搜索服务'),
-                icon: const BraveVectorIcon(size: 22),
-              ),
-              for (final SearchService s in kSearchServices)
-                _SearchServiceRow(service: s),
-              _ServerGroupHeader(
-                title: 'MCP',
-                icon: const McpVectorIcon(size: 22),
-              ),
-              for (final McpServer m in kMcpCatalog)
-                _McpServiceRow(label: m.label, id: m.id),
               const SizedBox(
                 height: 25,
               ),
@@ -237,179 +214,3 @@ class _ServicesPageState extends ConsumerState<ServicesPage> {
   }
 }
 
-/// Header grup provider (gaya lama, icon vector adaptif).
-class _ServerGroupHeader extends StatelessWidget {
-  final String title;
-  final Widget icon;
-
-  const _ServerGroupHeader({required this.title, required this.icon});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
-      child: Row(
-        children: [
-          icon,
-          const SizedBox(width: 10),
-          Text(
-            title,
-            style: Theme.of(context)
-                .textTheme
-                .titleMedium
-                ?.copyWith(fontWeight: FontWeight.bold),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-Widget _srvRowIcon(String id) {
-  switch (id) {
-    case 'brave':
-      return const BraveVectorIcon(size: 40);
-    case 'tavily':
-      return const TavilyVectorIcon(size: 40);
-    case 'doubao':
-      return const DoubaoVectorIcon(size: 40);
-    case 'firecrawl':
-      return const FirecrawlVectorIcon(size: 40);
-    default:
-      return const DotBrowsingIcon(size: 40);
-  }
-}
-
-/// Baris layanan search (gaya SettingItem lama + toggle sistem).
-class _SearchServiceRow extends StatefulWidget {
-  final SearchService service;
-
-  const _SearchServiceRow({required this.service});
-
-  @override
-  State<_SearchServiceRow> createState() => _SearchServiceRowState();
-}
-
-class _SearchServiceRowState extends State<_SearchServiceRow> {
-  @override
-  Widget build(BuildContext context) {
-    final bool enabled = ModelStore.searchEnabled(widget.service.id);
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      child: Card(
-        color: Theme.of(context).cardColor,
-        margin: EdgeInsets.zero,
-        child: Padding(
-          padding:
-              const EdgeInsets.only(left: 15, right: 15, top: 10, bottom: 10),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              SizedBox(
-                width: 50,
-                height: 50,
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(10),
-                  child: Center(child: _srvRowIcon(widget.service.id)),
-                ),
-              ),
-              const SizedBox(width: 15),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      widget.service.label,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context)
-                          .textTheme
-                          .titleMedium
-                          ?.copyWith(fontWeight: FontWeight.bold),
-                    ),
-                    Text(
-                      widget.service.id == 'dot_browsing'
-                          ? 'Scrape web bawaan (teks & gambar)'
-                          : (ModelStore.searchKey(widget.service.id).isEmpty
-                              ? 'API Key belum diisi'
-                              : 'API Key tersimpan'),
-                      style: Theme.of(context).textTheme.bodySmall,
-                    ),
-                  ],
-                ),
-              ),
-              Switch.adaptive(
-                value: enabled,
-                onChanged: (v) {
-                  ModelStore.setSearchEnabled(widget.service.id, v);
-                  setState(() {});
-                },
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-/// Baris server MCP (gaya SettingItem lama + toggle sistem).
-class _McpServiceRow extends StatefulWidget {
-  final String label;
-  final String id;
-
-  const _McpServiceRow({required this.label, required this.id});
-
-  @override
-  State<_McpServiceRow> createState() => _McpServiceRowState();
-}
-
-class _McpServiceRowState extends State<_McpServiceRow> {
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      child: Card(
-        color: Theme.of(context).cardColor,
-        margin: EdgeInsets.zero,
-        child: Padding(
-          padding:
-              const EdgeInsets.only(left: 15, right: 15, top: 10, bottom: 10),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              const SizedBox(
-                width: 50,
-                height: 50,
-                child: ClipRRect(
-                  borderRadius:
-                      BorderRadius.all(Radius.circular(10)),
-                  child: Center(child: McpVectorIcon(size: 40)),
-                ),
-              ),
-              const SizedBox(width: 15),
-              Expanded(
-                child: Text(
-                  widget.label,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context)
-                      .textTheme
-                      .titleMedium
-                      ?.copyWith(fontWeight: FontWeight.bold),
-                ),
-              ),
-              Switch.adaptive(
-                value: ModelStore.mcpEnabled(widget.id),
-                onChanged: (v) {
-                  ModelStore.setMcpEnabled(widget.id, v);
-                  setState(() {});
-                },
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
