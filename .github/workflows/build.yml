@@ -66,7 +66,20 @@ jobs:
         run: flutter pub get
 
       - name: Build APK release (arm64-v8a)
-        run: flutter build apk --release --target-platform android-arm64
+        run: |
+          set +e
+          flutter build apk --release --target-platform android-arm64 > build.txt 2>&1
+          STATUS=$?
+          tail -n 120 build.txt
+          if [ $STATUS -ne 0 ]; then
+            grep -n -E '^e: |error:|What went wrong|Execution failed|Could not|Unresolved|incompatible|Caused by|Dart compiler|Error:' build.txt | head -25 | while IFS= read -r line; do
+              clean=$(printf '%s' "$line" | cut -c1-420 | tr -d '\r')
+              echo "::error::${clean}"
+            done
+            ctx=$(grep -A8 'What went wrong' build.txt | head -14 | tr '\n' ' ' | cut -c1-900)
+            echo "::error::CTX ${ctx}"
+          fi
+          exit $STATUS
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
