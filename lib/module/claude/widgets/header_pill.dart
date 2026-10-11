@@ -119,11 +119,16 @@ Future<void> _showDeletePopup(
     context: context,
     barrierColor: Colors.black.withOpacity(0.2),
     builder: (context) {
-      return Center(
+      return Align(
+        alignment: Alignment.topRight,
         child: DefaultTextStyle(
           style: const TextStyle(fontFamily: AppDims.fontFamily),
           child: Container(
           width: 240,
+          margin: EdgeInsets.only(
+            top: MediaQuery.paddingOf(context).top + 72,
+            right: 16,
+          ),
           padding:
               const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
           decoration: BoxDecoration(
@@ -274,7 +279,7 @@ class MuseHeader extends StatelessWidget {
                 onTap: onNewChatTap,
               ),
               _CircleIconButton(
-                icon: const ToolVectorIcon(size: 20),
+                icon: const MoreDotsVectorIcon(size: 22),
                 onTap: () => _showDeletePopup(
                     context, () => onDeleteMessages?.call()),
               ),

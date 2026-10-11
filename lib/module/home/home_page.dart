@@ -89,8 +89,7 @@ class _HomePageState extends ConsumerState<HomePage>
   @override
   Widget build(BuildContext context) {
     var currentIndex = ref.watch(homeIndexProvider);
-    final bool kbOpen =
-        MediaQuery.of(context).viewInsets.bottom > 0;
+    final bool kbOpen = View.of(context).viewInsets.bottom > 0;
 
     // Navbar hanya icon, tanpa nama. Tengah = Ruang Kreasi (bohlam asli).
     const navIcons = [

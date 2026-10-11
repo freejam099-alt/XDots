@@ -1,6 +1,7 @@
 import 'package:chat_bot/hive_bean/openai_bean.dart';
 import 'package:chat_bot/utils/hive_box.dart';
 import 'package:flutter/material.dart';
+import 'package:pull_down_button/pull_down_button.dart';
 
 import 'app_theme.dart';
 import 'chat_data.dart';
@@ -140,7 +141,7 @@ class _RuangKreasiListState extends State<_RuangKreasiList> {
                 ),
               ),
               const SizedBox(height: 12),
-              _ModelSection(
+              _GroupedModelSection(
                 title: _t(context, 'Model Chat Default',
                     'Default Chat Model', '默认聊天模型'),
                 current: ModelStore.defaultChat(),
@@ -153,7 +154,7 @@ class _RuangKreasiListState extends State<_RuangKreasiList> {
                 onPick: (id) =>
                     setState(() => ModelStore.setDefaultChat(id)),
               ),
-              _ModelSection(
+              _PopupModelPicker(
                 title: _t(context, 'Model Gambar Default',
                     'Default Image Model', '默认图像模型'),
                 current: ModelStore.defaultImage(),
@@ -166,7 +167,7 @@ class _RuangKreasiListState extends State<_RuangKreasiList> {
                 onPick: (id) =>
                     setState(() => ModelStore.setDefaultImage(id)),
               ),
-              _ModelSection(
+              _PopupModelPicker(
                 title: _t(context, 'Model Video Default',
                     'Default Video Model', '默认视频模型'),
                 current: ModelStore.defaultVideo(),
@@ -258,14 +259,234 @@ class _RuangKreasiListState extends State<_RuangKreasiList> {
   }
 }
 
-class _ModelSection extends StatelessWidget {
+/// Model Chat Default: dikelompokkan per provider (bisa dilipat),
+/// tiap model punya toggle. Hanya satu model default yang aktif.
+class _GroupedModelSection extends StatefulWidget {
   final String title;
   final String current;
   final List<_ModelOption> options;
   final String emptyHint;
   final ValueChanged<String> onPick;
 
-  const _ModelSection({
+  const _GroupedModelSection({
+    required this.title,
+    required this.current,
+    required this.options,
+    required this.emptyHint,
+    required this.onPick,
+  });
+
+  @override
+  State<_GroupedModelSection> createState() => _GroupedModelSectionState();
+}
+
+class _GroupedModelSectionState extends State<_GroupedModelSection> {
+  final Set<String> _open = <String>{};
+
+  Map<String, List<_ModelOption>> _groups() {
+    final Map<String, List<_ModelOption>> out =
+        <String, List<_ModelOption>>{};
+    for (final _ModelOption o in widget.options) {
+      final String key = o.subtitle.isEmpty ? 'Lainnya' : o.subtitle;
+      out.putIfAbsent(key, () => <_ModelOption>[]).add(o);
+    }
+    return out;
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    // Buka otomatis grup yang berisi model terpilih.
+    _groups().forEach((String name, List<_ModelOption> list) {
+      if (list.any((o) => o.id == widget.current)) _open.add(name);
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final AppColors c = AppColors.of(context);
+    final Map<String, List<_ModelOption>> groups = _groups();
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(widget.title,
+              style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: c.textPrimary)),
+          const SizedBox(height: 8),
+          if (groups.isEmpty)
+            Container(
+              width: double.infinity,
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+              decoration: BoxDecoration(
+                color: c.surfaceSoft,
+                borderRadius: BorderRadius.circular(22),
+              ),
+              child: Text(widget.emptyHint,
+                  style: TextStyle(fontSize: 14, color: c.textMuted)),
+            )
+          else
+            for (final MapEntry<String, List<_ModelOption>> g
+                in groups.entries)
+              _ProviderGroup(
+                name: g.key,
+                models: g.value,
+                current: widget.current,
+                open: _open.contains(g.key),
+                onToggleOpen: () => setState(() {
+                  if (!_open.remove(g.key)) _open.add(g.key);
+                }),
+                onPick: widget.onPick,
+              ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ProviderGroup extends StatelessWidget {
+  final String name;
+  final List<_ModelOption> models;
+  final String current;
+  final bool open;
+  final VoidCallback onToggleOpen;
+  final ValueChanged<String> onPick;
+
+  const _ProviderGroup({
+    required this.name,
+    required this.models,
+    required this.current,
+    required this.open,
+    required this.onToggleOpen,
+    required this.onPick,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final AppColors c = AppColors.of(context);
+    final bool hasCurrent = models.any((o) => o.id == current);
+    final String initial =
+        name.isEmpty ? '?' : name.substring(0, 1).toUpperCase();
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(
+        color: c.surfaceSoft,
+        borderRadius: BorderRadius.circular(22),
+      ),
+      child: Column(
+        children: [
+          GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: onToggleOpen,
+            child: Padding(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              child: Row(
+                children: [
+                  Container(
+                    width: 30,
+                    height: 30,
+                    decoration: BoxDecoration(
+                      color: c.accent.withOpacity(0.16),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Center(
+                      child: Text(initial,
+                          style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.bold,
+                              color: c.accent)),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(name,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w600,
+                                color: c.textPrimary)),
+                        Text('${models.length} model',
+                            style: TextStyle(
+                                fontSize: 12, color: c.textMuted)),
+                      ],
+                    ),
+                  ),
+                  if (hasCurrent)
+                    Container(
+                      width: 8,
+                      height: 8,
+                      margin: const EdgeInsets.only(right: 8),
+                      decoration: BoxDecoration(
+                          color: c.accent, shape: BoxShape.circle),
+                    ),
+                  AnimatedRotation(
+                    turns: open ? 0.5 : 0.0,
+                    duration: AppDims.animMed,
+                    curve: Curves.easeOutCubic,
+                    child: Icon(Icons.expand_more,
+                        size: 24, color: c.textMuted),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          AnimatedSize(
+            duration: AppDims.animMed,
+            curve: Curves.easeOutCubic,
+            alignment: Alignment.topCenter,
+            child: open
+                ? Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 14),
+                    child: Column(
+                      children: [
+                        Container(
+                          height: 1,
+                          color: c.textMuted.withOpacity(0.15),
+                        ),
+                        for (int i = 0; i < models.length; i++) ...[
+                          _ModelToggleRow(
+                            option: models[i],
+                            selected: current == models[i].id,
+                            onChanged: (bool v) =>
+                                onPick(v ? models[i].id : ''),
+                          ),
+                          if (i != models.length - 1)
+                            Container(
+                              height: 1,
+                              color: c.textMuted.withOpacity(0.10),
+                            ),
+                        ],
+                      ],
+                    ),
+                  )
+                : const SizedBox(width: double.infinity, height: 0),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Model Gambar/Video Default: popup pilihan seperti di Pengaturan
+/// (PullDown + ikon chevron atas-bawah), dikelompokkan per provider.
+class _PopupModelPicker extends StatelessWidget {
+  final String title;
+  final String current;
+  final List<_ModelOption> options;
+  final String emptyHint;
+  final ValueChanged<String> onPick;
+
+  const _PopupModelPicker({
     required this.title,
     required this.current,
     required this.options,
@@ -276,6 +497,79 @@ class _ModelSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final AppColors c = AppColors.of(context);
+    final Map<String, List<_ModelOption>> groups =
+        <String, List<_ModelOption>>{};
+    for (final _ModelOption o in options) {
+      final String key = o.subtitle.isEmpty ? 'Lainnya' : o.subtitle;
+      groups.putIfAbsent(key, () => <_ModelOption>[]).add(o);
+    }
+    final Widget box;
+    if (options.isEmpty) {
+      box = Padding(
+        padding: const EdgeInsets.symmetric(vertical: 14),
+        child: Text(emptyHint,
+            style: TextStyle(fontSize: 14, color: c.textMuted)),
+      );
+    } else {
+      box = PullDownButton(
+        scrollController: ScrollController(),
+        itemBuilder: (BuildContext ctx) {
+          final List<PullDownMenuEntry> items = <PullDownMenuEntry>[];
+          groups.forEach((String name, List<_ModelOption> list) {
+            items.add(PullDownMenuTitle(
+              title: Padding(
+                padding: const EdgeInsets.only(top: 5, bottom: 5),
+                child: Text(name,
+                    style: Theme.of(ctx).textTheme.bodySmall),
+              ),
+            ));
+            for (final _ModelOption o in list) {
+              items.add(PullDownMenuItem.selectable(
+                title: o.id,
+                selected: o.id == current,
+                onTap: () => onPick(o.id),
+              ));
+            }
+          });
+          if (current.isNotEmpty) {
+            items.add(PullDownMenuItem(
+              title: 'Kosongkan pilihan',
+              onTap: () => onPick(''),
+            ));
+          }
+          return items;
+        },
+        buttonBuilder:
+            (BuildContext ctx, Future<void> Function() showMenu) {
+          return GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: showMenu,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 14),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      current.isEmpty ? 'Pilih model' : current,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 15,
+                        color: current.isEmpty
+                            ? c.textMuted
+                            : c.textPrimary,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  ChevronSelectIcon(size: 18, color: c.textMuted),
+                ],
+              ),
+            ),
+          );
+        },
+      );
+    }
     return Padding(
       padding: const EdgeInsets.only(bottom: 14),
       child: Column(
@@ -288,38 +582,13 @@ class _ModelSection extends StatelessWidget {
                   color: c.textPrimary)),
           const SizedBox(height: 8),
           Container(
-            padding:
-                const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 14),
             decoration: BoxDecoration(
               color: c.surfaceSoft,
               borderRadius: BorderRadius.circular(22),
             ),
-            child: options.isEmpty
-                ? Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    child: Text(emptyHint,
-                        style: TextStyle(
-                            fontSize: 14, color: c.textMuted)),
-                  )
-                : Column(
-                    children: [
-                      for (int oi = 0; oi < options.length; oi++) ...[
-                        _ModelToggleRow(
-                          option: options[oi],
-                          selected: current == options[oi].id,
-                          // Hanya satu model default: nyalakan = pilih,
-                          // matikan = kosongkan pilihan.
-                          onChanged: (bool v) =>
-                              onPick(v ? options[oi].id : ''),
-                        ),
-                        if (oi != options.length - 1)
-                          Container(
-                            height: 1,
-                            color: c.textMuted.withOpacity(0.15),
-                          ),
-                      ],
-                    ],
-                  ),
+            child: box,
           ),
         ],
       ),

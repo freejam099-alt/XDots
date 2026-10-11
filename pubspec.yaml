@@ -85,6 +85,7 @@ flutter:
     - assets/
     - assets/command.json
     - assets/images/
+    - assets/file_icons/
     - assets/lottie/
   fonts:
     - family: XDot

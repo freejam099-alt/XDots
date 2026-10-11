@@ -31,7 +31,7 @@ class MarkdownBubble extends StatelessWidget {
     final TextStyle body = _body(c);
     return MarkdownBody(
       data: text,
-      selectable: true,
+      selectable: false,
       styleSheet: MarkdownStyleSheet(
         p: body,
         h1: body.copyWith(fontWeight: FontWeight.bold, fontSize: 22),

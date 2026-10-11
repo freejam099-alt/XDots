@@ -375,7 +375,8 @@ class _ClaudeChatScreenState extends State<ClaudeChatScreen> {
     });
   }
 
-  void _openActions(int index) {    if (index < 0 || index >= _messages.length) return;
+  void _openActions(int index, [Offset? anchor]) {
+    if (index < 0 || index >= _messages.length) return;
     final ChatMsg m = _messages[index];
     showMessageActions(
       context,
@@ -385,6 +386,7 @@ class _ClaudeChatScreenState extends State<ClaudeChatScreen> {
       onEdit: m.isUser ? () => _beginEdit(index) : null,
       onResend: m.isUser ? () => _resend(index) : null,
       onDelete: () => _delete(index),
+      anchor: anchor,
     );
   }
 
@@ -394,8 +396,8 @@ class _ClaudeChatScreenState extends State<ClaudeChatScreen> {
   Widget build(BuildContext context) {
     applySystemUi(context);
     final double bottomSafe = MediaQuery.of(context).padding.bottom;
-    final bool kbOpen =
-        MediaQuery.of(context).viewInsets.bottom > 0;
+    // View.of: Scaffold induk menghapus viewInsets dari MediaQuery body.
+    final bool kbOpen = View.of(context).viewInsets.bottom > 0;
     final Widget content = DefaultTextStyle(
       style: const TextStyle(fontFamily: AppDims.fontFamily),
       child: Stack(
@@ -439,7 +441,7 @@ class _ClaudeChatScreenState extends State<ClaudeChatScreen> {
                   if (!widget.hideInputBar && !widget.embedded)
                     const SizedBox(height: AppDims.inputGapToNav),
                   if (widget.embedded && kbOpen)
-                    const SizedBox(height: 8),
+                    const SizedBox(height: 12),
                   // Navbar disembunyikan saat keyboard terbuka agar
                   // tidak overflow / tertutup keyboard.
                   if (!widget.embedded && !kbOpen)
@@ -602,16 +604,16 @@ class _ClaudeChatScreenState extends State<ClaudeChatScreen> {
     }
     if (m.type == MessageType.tool) return content;
     if (m.type == MessageType.gen) return content;
-    if (m.type == MessageType.text) return content;
-    // Kartu aksi + tombol aksi.
-    return Column(
-      crossAxisAlignment:
-          m.isUser ? CrossAxisAlignment.end : CrossAxisAlignment.start,
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        content,
-        if (index >= 0) _moreButton(index),
-      ],
+    return _withActions(index, content);
+  }
+
+  /// Tekan lama bubble -> menu aksi muncul di dekat jari.
+  Widget _withActions(int index, Widget child) {
+    if (index < 0) return child;
+    return GestureDetector(
+      onLongPressStart: (LongPressStartDetails d) =>
+          _openActions(index, d.globalPosition),
+      child: child,
     );
   }
 
@@ -622,7 +624,6 @@ class _ClaudeChatScreenState extends State<ClaudeChatScreen> {
       mainAxisAlignment: MainAxisAlignment.end,
       crossAxisAlignment: CrossAxisAlignment.end,
       children: [
-        if (index >= 0) _moreButton(index),
         Flexible(
           child: AnimatedSwitcher(
             duration: _kItemDuration,
@@ -656,7 +657,7 @@ class _ClaudeChatScreenState extends State<ClaudeChatScreen> {
                       ),
                     ),
                   if (m.text.isNotEmpty)
-                    SelectableText(
+                    Text(
                       m.text,
                       style: TextStyle(
                         fontSize: AppDims.chatFontSize,
@@ -694,20 +695,7 @@ class _ClaudeChatScreenState extends State<ClaudeChatScreen> {
             child: CleverMessage(text: m.text),
           ),
         ),
-        if (index >= 0) _moreButton(index),
       ],
-    );
-  }
-
-  Widget _moreButton(int index) {
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTap: () => _openActions(index),
-      child: Padding(
-        padding: const EdgeInsets.all(8),
-        child: Icon(Icons.more_horiz,
-            size: 18, color: c.textMuted),
-      ),
     );
   }
 
