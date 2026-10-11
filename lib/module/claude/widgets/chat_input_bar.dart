@@ -1,7 +1,9 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:speech_to_text/speech_to_text.dart' as stt;
 
 import '../../../utils/extension_string.dart';
 import '../app_theme.dart';
@@ -114,6 +116,130 @@ class ChatInputBar extends StatefulWidget {
 }
 
 class _ChatInputBarState extends State<ChatInputBar> {
+  // -- Input suara (SpeechRecognizer bawaan Android, tanpa dialog Google) --
+  final stt.SpeechToText _speech = stt.SpeechToText();
+  bool _speechReady = false;
+  bool _listening = false;
+  double _level = 0;
+  String _voiceBase = '';
+  String? _voiceLocale;
+
+  Future<void> _toggleVoice() async {
+    if (_listening) {
+      await _speech.stop();
+      if (mounted) setState(() => _listening = false);
+      return;
+    }
+    try {
+      if (!_speechReady) {
+        _speechReady = await _speech.initialize(
+          onStatus: (String st) {
+            if ((st == 'done' || st == 'notListening') &&
+                mounted &&
+                _listening) {
+              setState(() {
+                _listening = false;
+                _level = 0;
+              });
+            }
+          },
+          onError: (dynamic e) {
+            if (!mounted) return;
+            setState(() {
+              _listening = false;
+              _level = 0;
+            });
+          },
+        );
+        if (_speechReady) {
+          final stt.LocaleName? sys = await _speech.systemLocale();
+          _voiceLocale = sys?.localeId;
+        }
+      }
+      if (!_speechReady) {
+        'Pengenalan suara tidak tersedia atau izin mikrofon ditolak'.toast();
+        return;
+      }
+      _voiceBase = widget.controller.text;
+      final String sep =
+          _voiceBase.isEmpty || _voiceBase.endsWith(' ') ? '' : ' ';
+      setState(() => _listening = true);
+      await _speech.listen(
+        onResult: (dynamic r) {
+          final String words = (r.recognizedWords as String?) ?? '';
+          widget.controller.text = '$_voiceBase$sep$words';
+          widget.controller.selection = TextSelection.collapsed(
+              offset: widget.controller.text.length);
+        },
+        localeId: _voiceLocale,
+        listenFor: const Duration(minutes: 2),
+        pauseFor: const Duration(seconds: 4),
+        partialResults: true,
+        onSoundLevelChange: (double l) {
+          if (!mounted || !_listening) return;
+          setState(() => _level = ((l + 2) / 12).clamp(0.0, 1.0).toDouble());
+        },
+        listenMode: stt.ListenMode.dictation,
+      );
+    } catch (_) {
+      if (mounted) setState(() => _listening = false);
+      'Tidak dapat memulai input suara'.toast();
+    }
+  }
+
+  void _submitText(String v) {
+    if (_listening) {
+      _speech.cancel();
+      _listening = false;
+      _level = 0;
+    }
+    widget.onSubmitted(v);
+  }
+
+  Widget _micButton(AppColors c) {
+    return GestureDetector(
+      key: const ValueKey('mic'),
+      behavior: HitTestBehavior.opaque,
+      onTap: _toggleVoice,
+      child: SizedBox(
+        width: 40,
+        height: 40,
+        child: Stack(
+          alignment: Alignment.center,
+          clipBehavior: Clip.none,
+          children: [
+            if (_listening)
+              AnimatedContainer(
+                duration: AppDims.animFast,
+                width: 34 + _level * 22,
+                height: 34 + _level * 22,
+                decoration: BoxDecoration(
+                  color: c.accent.withOpacity(0.18),
+                  shape: BoxShape.circle,
+                ),
+              ),
+            AnimatedContainer(
+              duration: AppDims.animMed,
+              curve: Curves.easeOutCubic,
+              width: _listening ? 34 : 24,
+              height: _listening ? 34 : 24,
+              decoration: BoxDecoration(
+                color: _listening ? c.accent : Colors.transparent,
+                shape: BoxShape.circle,
+              ),
+              child: Center(
+                child: _listening
+                    ? const Icon(Icons.stop_rounded,
+                        size: 20, color: Colors.white)
+                    : SizedBox(width: 24, height: 24, child: widget.micIcon),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   bool _hasContent = false;
 
   ChatInputController? get _inputCtrl {
@@ -154,6 +280,7 @@ class _ChatInputBarState extends State<ChatInputBar> {
 
   @override
   void dispose() {
+    _speech.cancel();
     widget.controller.removeListener(_onText);
     _inputCtrl?.attachments.removeListener(_onText);
     super.dispose();
@@ -276,7 +403,16 @@ class _ChatInputBarState extends State<ChatInputBar> {
           }
           break;
         case AttachKind.file:
-          'File (Coming Soon)'.toast();
+          final FilePickerResult? picked = await FilePicker.platform
+              .pickFiles(type: FileType.any, allowMultiple: true);
+          if (picked != null) {
+            for (final PlatformFile pf in picked.files) {
+              final String? path = pf.path;
+              if (path == null) continue;
+              _inputCtrl?.addAttachment(ChatAttachment(
+                  kind: AttachKind.file, path: path, name: pf.name));
+            }
+          }
           break;
       }
     } catch (_) {
@@ -351,7 +487,7 @@ class _ChatInputBarState extends State<ChatInputBar> {
                           textInputAction: TextInputAction.send,
                           minLines: 1,
                           maxLines: AppDims.inputMaxLines,
-                          onSubmitted: widget.onSubmitted,
+                          onSubmitted: _submitText,
                           cursorColor: c.cursor,
                           style: TextStyle(
                             fontSize: AppDims.chatFontSize,
@@ -359,7 +495,7 @@ class _ChatInputBarState extends State<ChatInputBar> {
                             color: c.textPrimary,
                           ),
                           decoration: InputDecoration(
-                            hintText: widget.hint,
+                            hintText: _listening ? 'Mendengarkan...' : widget.hint,
                             hintStyle: TextStyle(
                               fontSize: AppDims.chatFontSize,
                               color: c.textHint,
@@ -400,13 +536,13 @@ class _ChatInputBarState extends State<ChatInputBar> {
                         ),
                       );
                     },
-                    child: _hasContent
+                    child: (_hasContent && !_listening)
                         ? GestureDetector(
                             key: const ValueKey('send'),
                             behavior: HitTestBehavior.opaque,
                             onTap: () {
                               final String v = widget.controller.text;
-                              widget.onSubmitted(v);
+                              _submitText(v);
                             },
                             // Kotak 40x40 sama dengan mic -> tinggi
                             // bar tidak berubah saat morph.
@@ -429,22 +565,7 @@ class _ChatInputBarState extends State<ChatInputBar> {
                               ),
                             ),
                           )
-                        : GestureDetector(
-                            key: const ValueKey('mic'),
-                            behavior: HitTestBehavior.opaque,
-                            onTap: widget.onMicTap ?? () {},
-                            child: SizedBox(
-                              width: 40,
-                              height: 40,
-                              child: Center(
-                                child: SizedBox(
-                                  width: 24,
-                                  height: 24,
-                                  child: widget.micIcon,
-                                ),
-                              ),
-                            ),
-                          ),
+                        : _micButton(c),
                   ),
                 ],
               ),

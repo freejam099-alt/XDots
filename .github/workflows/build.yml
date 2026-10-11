@@ -26,7 +26,20 @@ jobs:
         run: flutter pub get
 
       - name: Analyze
-        run: flutter analyze --no-fatal-warnings --no-fatal-infos
+        run: |
+          set +e
+          flutter analyze --no-fatal-warnings --no-fatal-infos > analyze.txt 2>&1
+          STATUS=$?
+          cat analyze.txt
+          # Ubah setiap error analyzer jadi annotation agar mudah dibaca.
+          grep -E '^ *error •' analyze.txt | head -40 | while IFS= read -r line; do
+            msg=$(printf '%s' "$line" | awk -F ' • ' '{print $2}')
+            loc=$(printf '%s' "$line" | awk -F ' • ' '{print $3}')
+            file=$(printf '%s' "$loc" | cut -d: -f1)
+            ln=$(printf '%s' "$loc" | cut -d: -f2)
+            echo "::error file=${file},line=${ln}::${msg}"
+          done
+          exit $STATUS
 
   build:
     name: Build release APK (arm64)
