@@ -92,7 +92,7 @@ class ChatInputController extends TextEditingController {
 class ChatInputBar extends StatefulWidget {
   final TextEditingController controller;
   final ValueChanged<String> onSubmitted;
-  final VoidCallback onMicTap;
+  final VoidCallback? onMicTap;
   final Widget plusIcon;
   final Widget micIcon;
   final String hint;
@@ -102,7 +102,7 @@ class ChatInputBar extends StatefulWidget {
     super.key,
     required this.controller,
     required this.onSubmitted,
-    required this.onMicTap,
+    this.onMicTap,
     required this.plusIcon,
     required this.micIcon,
     this.hint = 'Pesan',
@@ -432,7 +432,7 @@ class _ChatInputBarState extends State<ChatInputBar> {
                         : GestureDetector(
                             key: const ValueKey('mic'),
                             behavior: HitTestBehavior.opaque,
-                            onTap: widget.onMicTap,
+                            onTap: widget.onMicTap ?? () {},
                             child: SizedBox(
                               width: 40,
                               height: 40,

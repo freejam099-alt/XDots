@@ -2,12 +2,13 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 
+import 'ai_service.dart';
 import 'history_sheet.dart';
 import 'model_store.dart';
-import 'ruang_kreasi.dart';
 
 import 'app_theme.dart';
 import 'chat_data.dart';
+import 'widgets/bubble.dart';
 import 'widgets/cards.dart';
 import 'widgets/chat_input_bar.dart';
 import 'widgets/clever_block.dart';
@@ -99,6 +100,11 @@ class _ClaudeChatScreenState extends State<ClaudeChatScreen> {
   // Flag typing untuk typing indicator AI (streaming nyata via controller).
   final bool _typing = false;
 
+  // Status panggilan AI.
+  bool _aiBusy = false;
+  bool _rerun = false;
+  int _runId = 0;
+
   // Buffer streaming AI.
   String _streamBuf = '';
   bool _streaming = false;
@@ -143,7 +149,7 @@ class _ClaudeChatScreenState extends State<ClaudeChatScreen> {
 
   void _finishAiMessage() {
     if (!_streaming) return;
-    final String text = _streamBuf;
+    final String text = MuseAi.stripToolMarkers(_streamBuf).trim();
     setState(() {
       _streamBuf = '';
       _streaming = false;
@@ -248,6 +254,9 @@ class _ClaudeChatScreenState extends State<ClaudeChatScreen> {
       _streamBuf = '';
       _streaming = false;
       _editingIndex = null;
+      _aiBusy = false;
+      _rerun = false;
+      _runId++;
     });
   }
 
@@ -299,6 +308,7 @@ class _ClaudeChatScreenState extends State<ClaudeChatScreen> {
         ],
       ),
     );
+    _runAi();
   }
 
   void _scrollToBottom() {
@@ -346,6 +356,7 @@ class _ClaudeChatScreenState extends State<ClaudeChatScreen> {
     _insertMessage(
       ChatMsg(isUser: true, type: MessageType.text, text: m.text),
     );
+    _runAi();
   }
 
   void _beginEdit(int index) {
@@ -390,6 +401,159 @@ class _ClaudeChatScreenState extends State<ClaudeChatScreen> {
     );
   }
 
+  // -- AI ------------------------------------------------------------------
+
+  void _finishToolWithResult(String name, String result) {
+    final int i = _messages.lastIndexWhere((m) =>
+        m.type == MessageType.tool &&
+        m.toolName == name &&
+        m.toolStatus == ToolStatus.running);
+    if (i < 0) return;
+    setState(() {
+      _messages[i] = _messages[i]
+          .copyWith(toolStatus: ToolStatus.done, text: result);
+    });
+  }
+
+  void _noteTool(String name, String? detail, String result) {
+    _insertMessage(
+      ChatMsg(
+        isUser: false,
+        type: MessageType.tool,
+        text: result,
+        toolName: name,
+        toolDetail: detail,
+        toolStatus: ToolStatus.done,
+      ),
+    );
+  }
+
+  void _endRun() {
+    if (!mounted) return;
+    setState(() => _aiBusy = false);
+    if (_rerun) {
+      _rerun = false;
+      _runAi();
+    }
+  }
+
+  /// Kirim riwayat ke AI dan alirkan balasannya (streaming).
+  Future<void> _runAi({int depth = 0}) async {
+    if (_aiBusy && depth == 0) {
+      // Pesan baru masuk saat AI masih menjawab: jalankan setelahnya.
+      _rerun = true;
+      return;
+    }
+    final int id = depth == 0 ? ++_runId : _runId;
+    setState(() => _aiBusy = true);
+    String full = '';
+    try {
+      final Stream<String> stream =
+          await MuseAi.stream(List<ChatMsg>.of(_messages));
+      await for (final String token in stream) {
+        if (!mounted || id != _runId) break;
+        if (token.isEmpty) continue;
+        full += token;
+        _appendToken(token);
+      }
+    } catch (e) {
+      if (!mounted || id != _runId) return;
+      _finishAiMessage();
+      _insertMessage(ChatMsg(
+        isUser: false,
+        type: MessageType.text,
+        text: '⚠️ ${MuseAi.friendlyError(e)}',
+      ));
+      _endRun();
+      return;
+    }
+    if (!mounted || id != _runId) return;
+    _finishAiMessage();
+    if (full.trim().isEmpty) {
+      _insertMessage(ChatMsg(
+        isUser: false,
+        type: MessageType.text,
+        text: '⚠️ Model tidak mengirim balasan. Coba model lain di '
+            'Ruang Kreasi.',
+      ));
+      _endRun();
+      return;
+    }
+    final MuseToolCall? call = MuseAi.parseTool(full);
+    if (call != null && depth < 2) {
+      await _runTool(call, depth, id);
+      return;
+    }
+    _endRun();
+  }
+
+  Future<void> _runTool(MuseToolCall call, int depth, int id) async {
+    final String toolId = call.name == 'browse' ? 'tools_browsing' : call.name;
+    bool continueAi = true;
+    if (!ModelStore.toolEnabled(toolId)) {
+      _noteTool(toolId, null,
+          'Tool $toolId dinonaktifkan pengguna (atur di Ruang Kreasi).');
+    } else {
+      switch (call.name) {
+        case 'create_image':
+          continueAi = false;
+          await _toolCreateImage(call.arg);
+          break;
+        case 'browse':
+          await _toolBrowse(call.arg);
+          break;
+        case 'tools_use':
+          _noteTool('tools_use', null, MuseAi.toolsOverview());
+          break;
+        default:
+          _noteTool(call.name, null,
+              'Tool tidak dikenal atau belum tersedia.');
+      }
+    }
+    if (!mounted || id != _runId) return;
+    if (continueAi) {
+      await _runAi(depth: depth + 1);
+    } else {
+      _endRun();
+    }
+  }
+
+  Future<void> _toolCreateImage(String prompt) async {
+    final String p = prompt.isEmpty ? 'abstract colorful art' : prompt;
+    _genStart(false);
+    _genPrompt(p);
+    _genSetPhase(GenPhase.generating.index);
+    try {
+      final String path = await MuseAi.generateImage(p);
+      if (!mounted) return;
+      _genUpdate((m) => m.copyWith(
+          text: 'Gambar berhasil dibuat dan sudah ditampilkan ke '
+              'pengguna. Prompt: $p'));
+      _genSetResult(path);
+    } catch (e) {
+      if (!mounted) return;
+      final int gi = _lastGenIndex();
+      if (gi >= 0) _delete(gi);
+      _insertMessage(ChatMsg(
+        isUser: false,
+        type: MessageType.text,
+        text: '⚠️ Gagal membuat gambar: ${MuseAi.friendlyError(e)}',
+      ));
+    }
+  }
+
+  Future<void> _toolBrowse(String url) async {
+    _toolCall('tools_browsing', url);
+    String result;
+    try {
+      result = await MuseAi.browse(url);
+    } catch (e) {
+      result = 'Gagal membuka halaman: ${MuseAi.friendlyError(e)}';
+    }
+    if (!mounted) return;
+    _finishToolWithResult('tools_browsing', result);
+  }
+
   // -- Build --------------------------------------------------------------
 
   @override
@@ -429,12 +593,20 @@ class _ClaudeChatScreenState extends State<ClaudeChatScreen> {
                   ),
                   const SizedBox(height: 12),
                   Expanded(child: _buildList()),
-                  if (_streaming) _streamingBubble(),
+                  if (_aiBusy &&
+                      (!_streaming ||
+                          MuseAi.stripToolMarkers(_streamBuf).isEmpty))
+                    const Padding(
+                      padding: EdgeInsets.only(bottom: 12),
+                      child: TypingBubble(),
+                    ),
+                  if (_streaming &&
+                      MuseAi.stripToolMarkers(_streamBuf).isNotEmpty)
+                    _streamingBubble(),
                   if (!widget.hideInputBar)
                     ChatInputBar(
                       controller: _controller,
                       onSubmitted: _send,
-                      onMicTap: () => openRuangKreasi(context),
                       plusIcon: const PlusIcon32(),
                       micIcon: const VoiceVectorIcon(size: 22),
                     ),
@@ -550,7 +722,7 @@ class _ClaudeChatScreenState extends State<ClaudeChatScreen> {
                 borderRadius:
                     BorderRadius.circular(AppDims.bubbleRadius),
               ),
-              child: StreamingText(text: _streamBuf),
+              child: StreamingText(text: MuseAi.stripToolMarkers(_streamBuf)),
             ),
           ),
         ],
