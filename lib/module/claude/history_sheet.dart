@@ -162,6 +162,5 @@ class _HistorySheetState extends State<_HistorySheet> {
           ),
       },
         );
-    );
   }
 }
