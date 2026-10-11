@@ -3,7 +3,7 @@ import 'dart:io';
 
 import 'package:chat_bot/base/api.dart';
 import 'package:chat_bot/base/api_impl/chatgpt_impl.dart';
-import 'package:chat_bot/base/db/chat_item.dart';
+import 'package:chat_bot/base/db/chat_item.dart' hide MessageType;
 import 'package:chat_bot/hive_bean/generate_content.dart';
 import 'package:chat_bot/hive_bean/local_chat_history.dart';
 import 'package:chat_bot/hive_bean/openai_bean.dart';
