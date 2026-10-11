@@ -43,7 +43,6 @@ class CleverMessage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final AppColors c = AppColors.of(context);
     final List<_Block> blocks = _parse(text);
     if (blocks.length == 1 && blocks.first is _TextBlock) {
       return MarkdownBubble(text: (blocks.first as _TextBlock).text);
