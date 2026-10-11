@@ -63,7 +63,8 @@ class _StreamingTextState extends State<StreamingText> {
         _timer = null;
         return;
       }
-      setState(() => _shown = (_shown + 2).clamp(0, widget.text.length));
+      setState(
+          () => _shown = (_shown + 2).clamp(0, widget.text.length).toInt());
     });
   }
 
@@ -83,8 +84,8 @@ class _StreamingTextState extends State<StreamingText> {
           height: AppDims.chatLineHeight,
           color: c.textPrimary,
         );
-    final String visible =
-        widget.text.substring(0, _shown.clamp(0, widget.text.length));
+    final String visible = widget.text.substring(
+        0, _shown.clamp(0, widget.text.length).toInt());
     return Text.rich(
       TextSpan(
         text: visible,

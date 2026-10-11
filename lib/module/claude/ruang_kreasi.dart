@@ -81,7 +81,6 @@ class _RuangKreasiSheet extends StatefulWidget {
 class _RuangKreasiSheetState extends State<_RuangKreasiSheet> {
   @override
   Widget build(BuildContext context) {
-    final AppColors c = AppColors.of(context);
     return DraggableScrollableSheet(
       initialChildSize: 0.85,
       minChildSize: 0.5,

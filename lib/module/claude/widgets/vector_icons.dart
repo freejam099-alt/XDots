@@ -513,7 +513,7 @@ double _tan(double x) {
 }
 
 double _acos(double v) {
-  v = v.clamp(-1.0, 1.0);
+  v = v.clamp(-1.0, 1.0).toDouble();
   // atan2 berbasis: acos(v) = atan2(sqrt(1-v^2), v)
   final double s = _sqrt((1 - v) * (1 + v));
   if (s == 0) return v < 0 ? 3.141592653589793 : 0;

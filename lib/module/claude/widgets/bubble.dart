@@ -129,7 +129,8 @@ class _TypingBubbleState extends State<TypingBubble>
                   // Opacity mengikuti ketinggian agar terasa hidup.
                   final double opacity =
                       (0.45 + 0.55 * (1 - (dy.abs() / _amplitude)))
-                          .clamp(0.0, 1.0);
+                          .clamp(0.0, 1.0)
+                          .toDouble();
                   return Transform.translate(
                     offset: Offset(0, dy),
                     child: Container(

@@ -204,10 +204,10 @@ class MuseHeader extends StatelessWidget {
         ),
         const SizedBox(width: 10),
         Expanded(
-          child: AnimatedSize(
+          child: AnimatedContainer(
             duration: const Duration(milliseconds: 200),
-            child: Container(
-              height: status == null ? 56 : 68,
+            curve: Curves.easeOutCubic,
+            height: status == null ? 56 : 68,
               padding: const EdgeInsets.symmetric(horizontal: 18),
               decoration: BoxDecoration(
                 color: c.surface,
@@ -221,9 +221,7 @@ class MuseHeader extends StatelessWidget {
                     width: 44,
                     height: 44,
                     decoration: BoxDecoration(
-                      color: c.brightness == Brightness.dark
-                          ? c.surfaceSoft
-                          : const Color(0xFFF5E6C8),
+                      color: c.avatarBg,
                       shape: BoxShape.circle,
                     ),
                     child: Center(

@@ -36,6 +36,7 @@ class AppColors extends ThemeExtension<AppColors> {
   final Color globeIcon;
   final Color menuBg;
   final Color menuIcon;
+  final Color avatarBg;
   final double shadowOpacity;
   final double shadowBlur;
   final double menuShadowBlur;
@@ -72,6 +73,7 @@ class AppColors extends ThemeExtension<AppColors> {
     required this.globeIcon,
     required this.menuBg,
     required this.menuIcon,
+    required this.avatarBg,
     required this.shadowOpacity,
     required this.shadowBlur,
     required this.menuShadowBlur,
@@ -108,6 +110,7 @@ class AppColors extends ThemeExtension<AppColors> {
     globeBox: Color(0xFFE3F0FD),
     globeIcon: Color(0xFF0A66D8),
     menuBg: Color(0xFFFFFFFF),
+    avatarBg: Color(0xFFF5E6C8),
     menuIcon: Color(0xFF1A1F2B),
     shadowOpacity: 0.07,
     shadowBlur: 24,
@@ -145,6 +148,7 @@ class AppColors extends ThemeExtension<AppColors> {
     globeBox: Color(0xFF1F3A5C),
     globeIcon: Color(0xFF4C8DF6),
     menuBg: Color(0xFF2A2D33),
+    avatarBg: Color(0xFF23262C),
     menuIcon: Color(0xFFF2F4F7),
     shadowOpacity: 0.35,
     shadowBlur: 24,
@@ -228,6 +232,7 @@ class AppColors extends ThemeExtension<AppColors> {
     Color? globeIcon,
     Color? menuBg,
     Color? menuIcon,
+    Color? avatarBg,
     double? shadowOpacity,
     double? shadowBlur,
     double? menuShadowBlur,
@@ -264,6 +269,7 @@ class AppColors extends ThemeExtension<AppColors> {
       globeIcon: globeIcon ?? this.globeIcon,
       menuBg: menuBg ?? this.menuBg,
       menuIcon: menuIcon ?? this.menuIcon,
+      avatarBg: avatarBg ?? this.avatarBg,
       shadowOpacity: shadowOpacity ?? this.shadowOpacity,
       shadowBlur: shadowBlur ?? this.shadowBlur,
       menuShadowBlur: menuShadowBlur ?? this.menuShadowBlur,
@@ -306,6 +312,7 @@ class AppColors extends ThemeExtension<AppColors> {
       globeIcon: lerpColor(globeIcon, other.globeIcon),
       menuBg: lerpColor(menuBg, other.menuBg),
       menuIcon: lerpColor(menuIcon, other.menuIcon),
+      avatarBg: lerpColor(avatarBg, other.avatarBg),
       shadowOpacity:
           shadowOpacity + (other.shadowOpacity - shadowOpacity) * t,
       shadowBlur: shadowBlur + (other.shadowBlur - shadowBlur) * t,

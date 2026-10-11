@@ -134,7 +134,7 @@ class ChatMsg {
     return ChatMsg(
       isUser: json['isUser'] == true,
       type: MessageType.values[
-          typeIndex.clamp(0, MessageType.values.length - 1)],
+          typeIndex.clamp(0, MessageType.values.length - 1).toInt()],
       text: json['text'] as String? ?? '',
       reaction: json['reaction'] as String?,
       domain: json['domain'] as String?,
@@ -142,7 +142,7 @@ class ChatMsg {
       toolName: json['toolName'] as String?,
       toolDetail: json['toolDetail'] as String?,
       toolStatus: ToolStatus.values[
-          statusIndex.clamp(0, ToolStatus.values.length - 1)],
+          statusIndex.clamp(0, ToolStatus.values.length - 1).toInt()],
       attachments: rawAttach is List
           ? rawAttach
               .whereType<Map>()

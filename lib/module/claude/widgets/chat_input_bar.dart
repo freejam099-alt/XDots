@@ -36,7 +36,7 @@ class ChatAttachment {
     final int kindIndex = (json['kind'] as num?)?.toInt() ?? 0;
     return ChatAttachment(
       kind: AttachKind.values[
-          kindIndex.clamp(0, AttachKind.values.length - 1)],
+          kindIndex.clamp(0, AttachKind.values.length - 1).toInt()],
       path: json['path'] as String? ?? '',
       name: json['name'] as String? ?? '',
     );

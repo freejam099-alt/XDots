@@ -382,7 +382,8 @@ class _McpServiceRowState extends State<_McpServiceRow> {
                 width: 50,
                 height: 50,
                 child: ClipRRect(
-                  borderRadius: BorderRadius.all(Radius.circular(10)),
+                  borderRadius:
+                      BorderRadius.all(Radius.circular(10)),
                   child: Center(child: McpVectorIcon(size: 40)),
                 ),
               ),

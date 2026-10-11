@@ -367,14 +367,7 @@ class _ClaudeChatScreenState extends State<ClaudeChatScreen> {
     final ChatMsg old = _messages[index];
     setState(() {
       // Pesan langsung ditimpa dengan yang baru.
-      _messages[index] = ChatMsg(
-        isUser: old.isUser,
-        type: old.type,
-        text: text,
-        reaction: old.reaction,
-        domain: old.domain,
-        total: old.total,
-      );
+      _messages[index] = old.copyWith(text: text);
       _editingIndex = null;
     });
   }
@@ -430,7 +423,6 @@ class _ClaudeChatScreenState extends State<ClaudeChatScreen> {
                     ChatInputBar(
                       controller: _controller,
                       onSubmitted: _send,
-                      onPlusTap: () {},
                       onMicTap: () => openRuangKreasi(context),
                       plusIcon: const PlusIcon32(),
                       micIcon: const VoiceVectorIcon(size: 22),
@@ -569,7 +561,7 @@ class _ClaudeChatScreenState extends State<ClaudeChatScreen> {
         content = GenCard(
           isVideo: m.genKind == 1,
           phase: GenPhase
-              .values[m.genPhase.clamp(0, GenPhase.values.length - 1)],
+              .values[m.genPhase.clamp(0, GenPhase.values.length - 1).toInt()],
           prompt: m.genPrompt ?? '',
           ratio: m.genRatio,
           result: m.genResult,

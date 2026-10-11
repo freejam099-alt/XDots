@@ -20,6 +20,7 @@ Future<void> showMessageActions(
     context: context,
     backgroundColor: Colors.transparent,
     builder: (context) {
+      final AppColors c = AppColors.of(context);
       return Center(
         child: DefaultTextStyle(
           style: const TextStyle(fontFamily: AppDims.fontFamily),

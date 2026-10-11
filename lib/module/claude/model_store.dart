@@ -73,14 +73,14 @@ class ModelStore {
   static void addManualModel(String id) {
     final String name = id.trim();
     if (name.isEmpty) return;
-    final List<String> list = manualModels();
+    final List<String> list = [...manualModels()];
     if (list.contains(name)) return;
     list.add(name);
     SpUtil.putStringList(kManualModels, list);
   }
 
   static void removeManualModel(String id) {
-    final List<String> list = manualModels();
+    final List<String> list = [...manualModels()];
     list.remove(id);
     SpUtil.putStringList(kManualModels, list);
   }
@@ -90,14 +90,14 @@ class ModelStore {
   static void addCustomMcp(String id) {
     final String name = id.trim();
     if (name.isEmpty) return;
-    final List<String> list = customMcp();
+    final List<String> list = [...customMcp()];
     if (list.contains(name)) return;
     list.add(name);
     SpUtil.putStringList(kCustomMcp, list);
   }
 
   static void removeCustomMcp(String id) {
-    final List<String> list = customMcp();
+    final List<String> list = [...customMcp()];
     list.remove(id);
     SpUtil.putStringList(kCustomMcp, list);
   }
