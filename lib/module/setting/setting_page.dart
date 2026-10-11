@@ -41,7 +41,7 @@ class _SettingPageState extends ConsumerState<SettingPage> {
         physics: const AlwaysScrollableScrollPhysics(),
         child: Container(
           padding: EdgeInsets.only(
-            bottom: MediaQuery.paddingOf(context).bottom + kBottomNavigationBarHeight,
+            bottom: 16,
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,

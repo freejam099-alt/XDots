@@ -2,7 +2,7 @@ import 'package:chat_bot/base.dart';
 import 'package:chat_bot/module/claude/app_theme.dart';
 import 'package:chat_bot/module/claude/chat_screen.dart';
 import 'package:chat_bot/module/claude/ruang_kreasi.dart';
-import 'package:chat_bot/module/claude/server_panel.dart';
+import 'package:chat_bot/module/services/services_page.dart';
 import 'package:chat_bot/module/claude/widgets/floating_pill_navbar.dart';
 import 'package:chat_bot/module/claude/widgets/vector_icons.dart';
 import 'package:chat_bot/module/home/home_viewmodel.dart';
@@ -127,7 +127,7 @@ class _HomePageState extends ConsumerState<HomePage>
                     embedded: true,
                   ),
                   const PromptPage(),
-                  const ServerPanel(),
+                  const ServicesPage(),
                   const SettingPage(),
                 ],
               ),

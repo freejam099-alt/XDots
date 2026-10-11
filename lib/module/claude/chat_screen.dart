@@ -438,6 +438,8 @@ class _ClaudeChatScreenState extends State<ClaudeChatScreen> {
                     ),
                   if (!widget.hideInputBar && !widget.embedded)
                     const SizedBox(height: AppDims.inputGapToNav),
+                  if (widget.embedded && kbOpen)
+                    const SizedBox(height: 8),
                   // Navbar disembunyikan saat keyboard terbuka agar
                   // tidak overflow / tertutup keyboard.
                   if (!widget.embedded && !kbOpen)

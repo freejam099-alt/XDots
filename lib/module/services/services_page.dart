@@ -33,7 +33,7 @@ class _ServicesPageState extends ConsumerState<ServicesPage> {
         physics: const AlwaysScrollableScrollPhysics(),
         child: Container(
           padding: EdgeInsets.only(
-            bottom: MediaQuery.paddingOf(context).bottom + kBottomNavigationBarHeight,
+            bottom: 16,
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,

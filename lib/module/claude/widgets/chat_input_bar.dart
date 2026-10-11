@@ -159,53 +159,83 @@ class _ChatInputBarState extends State<ChatInputBar> {
     super.dispose();
   }
 
+  final GlobalKey _plusKey = GlobalKey();
+
+  /// Menu lampiran muncul tepat di atas tombol "+" (bukan di tengah).
   Future<void> _openAttachPopup() async {
     final AppColors c = AppColors.of(context);
-    final AttachKind? kind = await showModalBottomSheet<AttachKind>(
+    final BuildContext? plusCtx = _plusKey.currentContext;
+    if (plusCtx == null) return;
+    final RenderBox box = plusCtx.findRenderObject()! as RenderBox;
+    final Offset topLeft = box.localToGlobal(Offset.zero);
+    final AttachKind? kind = await showGeneralDialog<AttachKind>(
       context: context,
-      backgroundColor: Colors.transparent,
-      builder: (context) {
-        return Center(
-          child: DefaultTextStyle(
-            style: const TextStyle(fontFamily: AppDims.fontFamily),
-            child: Container(
-            width: MediaQuery.of(context).size.width * 0.7,
-            margin: EdgeInsets.only(
-              bottom: 12 + MediaQuery.of(context).padding.bottom,
+      barrierDismissible: true,
+      barrierLabel: 'Lampiran',
+      barrierColor: Colors.black.withOpacity(0.25),
+      transitionDuration: AppDims.animMed,
+      pageBuilder: (ctx, _, __) {
+        final Size screen = MediaQuery.sizeOf(ctx);
+        return Stack(
+          fit: StackFit.expand,
+          children: [
+            Positioned(
+              left: topLeft.dx,
+              bottom: screen.height - topLeft.dy + 10,
+              child: Material(
+                type: MaterialType.transparency,
+                child: DefaultTextStyle(
+                  style: const TextStyle(fontFamily: AppDims.fontFamily),
+                  child: Container(
+                    width: 200,
+                    padding: const EdgeInsets.symmetric(vertical: 6),
+                    decoration: BoxDecoration(
+                      color: c.surface,
+                      borderRadius: BorderRadius.circular(22),
+                      boxShadow: [c.shadowFloat],
+                    ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        _AttachRow(
+                            icon: const PhotoVectorIcon(),
+                            label: 'Foto',
+                            onTap: () =>
+                                Navigator.of(ctx).pop(AttachKind.photo)),
+                        _AttachRow(
+                            icon: const CameraVectorIcon(),
+                            label: 'Kamera',
+                            onTap: () =>
+                                Navigator.of(ctx).pop(AttachKind.camera)),
+                        _AttachRow(
+                            icon: const VideoVectorIcon(),
+                            label: 'Video',
+                            onTap: () =>
+                                Navigator.of(ctx).pop(AttachKind.video)),
+                        _AttachRow(
+                            icon: const FileVectorIcon(),
+                            label: 'Berkas',
+                            onTap: () =>
+                                Navigator.of(ctx).pop(AttachKind.file)),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
             ),
-            padding: const EdgeInsets.symmetric(vertical: 8),
-            decoration: BoxDecoration(
-              color: c.surface,
-              borderRadius: BorderRadius.circular(26),
-              boxShadow: [c.shadowFloat],
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                _AttachRow(
-                    icon: const PhotoVectorIcon(),
-                    label: 'Foto',
-                    onTap: () =>
-                        Navigator.of(context).pop(AttachKind.photo)),
-                _AttachRow(
-                    icon: const CameraVectorIcon(),
-                    label: 'Kamera',
-                    onTap: () =>
-                        Navigator.of(context).pop(AttachKind.camera)),
-                _AttachRow(
-                    icon: const VideoVectorIcon(),
-                    label: 'Video',
-                    onTap: () =>
-                        Navigator.of(context).pop(AttachKind.video)),
-                _AttachRow(
-                    icon: const FileVectorIcon(),
-                    label: 'Berkas',
-                    onTap: () =>
-                        Navigator.of(context).pop(AttachKind.file)),
-              ],
-            ),
-            ),
-            ),
+          ],
+        );
+      },
+      transitionBuilder: (ctx, anim, _, child) {
+        final CurvedAnimation curved =
+            CurvedAnimation(parent: anim, curve: Curves.easeOutCubic);
+        return FadeTransition(
+          opacity: curved,
+          child: ScaleTransition(
+            alignment: Alignment.bottomLeft,
+            scale: Tween<double>(begin: 0.85, end: 1.0).animate(curved),
+            child: child,
+          ),
         );
       },
     );
@@ -260,26 +290,31 @@ class _ChatInputBarState extends State<ChatInputBar> {
     final double barWidth =
         MediaQuery.of(context).size.width * AppDims.inputWidthFactor;
     final bool multiLine = _lineCount(widget.controller.text) > 1;
-    return Padding(
-      padding:
-          EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
-      child: Center(
-        child: Container(
-          width: barWidth,
-          constraints: const BoxConstraints(
-            minHeight: AppDims.inputMinHeight,
+    // Catatan: Scaffold sudah mengecilkan body saat keyboard muncul,
+    // jadi TIDAK ada padding viewInsets di sini (sebelumnya dihitung
+    // dua kali sehingga bar melompat/kenyal).
+    return Center(
+      child: AnimatedContainer(
+        duration: AppDims.animMed,
+        curve: Curves.easeOutCubic,
+        width: barWidth,
+        constraints: const BoxConstraints(
+          minHeight: AppDims.inputMinHeight,
+        ),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        decoration: BoxDecoration(
+          color: c.surface,
+          borderRadius: BorderRadius.circular(
+            multiLine
+                ? AppDims.inputRadiusMulti
+                : AppDims.inputRadiusSingle,
           ),
-          padding:
-              const EdgeInsets.only(left: 14, right: 14, top: 12, bottom: 12),
-          decoration: BoxDecoration(
-            color: c.surface,
-            borderRadius: BorderRadius.circular(
-              multiLine
-                  ? AppDims.inputRadiusMulti
-                  : AppDims.inputRadiusSingle,
-            ),
-            boxShadow: [c.shadowFloat],
-          ),
+          boxShadow: [c.shadowFloat],
+        ),
+        child: AnimatedSize(
+          duration: AppDims.animMed,
+          curve: Curves.easeOutCubic,
+          alignment: Alignment.bottomCenter,
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -288,115 +323,129 @@ class _ChatInputBarState extends State<ChatInputBar> {
               Row(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
-              GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onTap: _openAttachPopup,
-                child: SizedBox(
-                  width: 40,
-                  height: 40,
-                  child: Center(
+                  GestureDetector(
+                    key: _plusKey,
+                    behavior: HitTestBehavior.opaque,
+                    onTap: _openAttachPopup,
                     child: SizedBox(
-                      width: 24,
-                      height: 24,
-                      child: widget.plusIcon,
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: TextField(
-                  controller: widget.controller,
-                  keyboardType: TextInputType.multiline,
-                  textInputAction: TextInputAction.send,
-                  minLines: 1,
-                  maxLines: AppDims.inputMaxLines,
-                  onSubmitted: widget.onSubmitted,
-                  cursorColor: c.cursor,
-                  style: TextStyle(
-                    fontSize: AppDims.chatFontSize,
-                    height: AppDims.chatLineHeight,
-                    color: c.textPrimary,
-                  ),
-                  decoration: InputDecoration(
-                    hintText: widget.hint,
-                    hintStyle: TextStyle(
-                      fontSize: AppDims.chatFontSize,
-                      color: c.textHint,
-                    ),
-                    border: InputBorder.none,
-                    enabledBorder: InputBorder.none,
-                    focusedBorder: InputBorder.none,
-                    isDense: true,
-                    contentPadding: EdgeInsets.zero,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 10),
-              AnimatedSwitcher(
-                duration: AppDims.animMed,
-                switchInCurve: Curves.easeOutCubic,
-                switchOutCurve: Curves.easeOutCubic,
-                transitionBuilder: (child, animation) {
-                  // Morph voice <-> send: fade + scale + geser vertikal
-                  // (kabu gerak/motion blur ringan khas app).
-                  final CurvedAnimation curved = CurvedAnimation(
-                    parent: animation,
-                    curve: Curves.easeOutCubic,
-                  );
-                  return FadeTransition(
-                    opacity: curved,
-                    child: ScaleTransition(
-                      scale: Tween<double>(begin: 0.7, end: 1.0)
-                          .animate(curved),
-                      child: SlideTransition(
-                        position: Tween<Offset>(
-                          begin: const Offset(0, 0.35),
-                          end: Offset.zero,
-                        ).animate(curved),
-                        child: child,
+                      width: 40,
+                      height: 40,
+                      child: Center(
+                        child: SizedBox(
+                          width: 24,
+                          height: 24,
+                          child: widget.plusIcon,
+                        ),
                       ),
                     ),
-                  );
-                },
-                child: _hasContent
-                    ? GestureDetector(
-                        key: const ValueKey('send'),
-                        behavior: HitTestBehavior.opaque,
-                        onTap: () {
-                          final String v = widget.controller.text;
-                          widget.onSubmitted(v);
-                        },
-                        child: Container(
-                          width: 36,
-                          height: 36,
-                          decoration: BoxDecoration(
-                            color: c.accent,
-                            shape: BoxShape.circle,
+                  ),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(minHeight: 40),
+                      child: Align(
+                        alignment: Alignment.centerLeft,
+                        child: TextField(
+                          controller: widget.controller,
+                          keyboardType: TextInputType.multiline,
+                          textInputAction: TextInputAction.send,
+                          minLines: 1,
+                          maxLines: AppDims.inputMaxLines,
+                          onSubmitted: widget.onSubmitted,
+                          cursorColor: c.cursor,
+                          style: TextStyle(
+                            fontSize: AppDims.chatFontSize,
+                            height: AppDims.chatLineHeight,
+                            color: c.textPrimary,
                           ),
-                          child: const Center(
-                            child: SendVectorIcon(
-                                size: 20, color: Colors.white),
+                          decoration: InputDecoration(
+                            hintText: widget.hint,
+                            hintStyle: TextStyle(
+                              fontSize: AppDims.chatFontSize,
+                              color: c.textHint,
+                            ),
+                            border: InputBorder.none,
+                            enabledBorder: InputBorder.none,
+                            focusedBorder: InputBorder.none,
+                            isDense: true,
+                            contentPadding: EdgeInsets.zero,
                           ),
                         ),
-                      )
-                    : GestureDetector(
-                        key: const ValueKey('mic'),
-                        behavior: HitTestBehavior.opaque,
-                        onTap: widget.onMicTap,
-                        child: SizedBox(
-                          width: 40,
-                          height: 40,
-                          child: Center(
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  AnimatedSwitcher(
+                    duration: AppDims.animMed,
+                    switchInCurve: Curves.easeOutCubic,
+                    switchOutCurve: Curves.easeOutCubic,
+                    transitionBuilder: (child, animation) {
+                      // Morph voice <-> kirim: fade + scale + geser.
+                      final CurvedAnimation curved = CurvedAnimation(
+                        parent: animation,
+                        curve: Curves.easeOutCubic,
+                      );
+                      return FadeTransition(
+                        opacity: curved,
+                        child: ScaleTransition(
+                          scale: Tween<double>(begin: 0.7, end: 1.0)
+                              .animate(curved),
+                          child: SlideTransition(
+                            position: Tween<Offset>(
+                              begin: const Offset(0, 0.35),
+                              end: Offset.zero,
+                            ).animate(curved),
+                            child: child,
+                          ),
+                        ),
+                      );
+                    },
+                    child: _hasContent
+                        ? GestureDetector(
+                            key: const ValueKey('send'),
+                            behavior: HitTestBehavior.opaque,
+                            onTap: () {
+                              final String v = widget.controller.text;
+                              widget.onSubmitted(v);
+                            },
+                            // Kotak 40x40 sama dengan mic -> tinggi
+                            // bar tidak berubah saat morph.
                             child: SizedBox(
-                              width: 24,
-                              height: 24,
-                              child: widget.micIcon,
+                              width: 40,
+                              height: 40,
+                              child: Center(
+                                child: Container(
+                                  width: 36,
+                                  height: 36,
+                                  decoration: BoxDecoration(
+                                    color: c.accent,
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: const Center(
+                                    child: SendVectorIcon(
+                                        size: 20, color: Colors.white),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          )
+                        : GestureDetector(
+                            key: const ValueKey('mic'),
+                            behavior: HitTestBehavior.opaque,
+                            onTap: widget.onMicTap,
+                            child: SizedBox(
+                              width: 40,
+                              height: 40,
+                              child: Center(
+                                child: SizedBox(
+                                  width: 24,
+                                  height: 24,
+                                  child: widget.micIcon,
+                                ),
+                              ),
                             ),
                           ),
-                        ),
-                      ),
-              ),
+                  ),
                 ],
               ),
             ],

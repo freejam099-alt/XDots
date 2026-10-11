@@ -577,6 +577,9 @@ bool _isCmdChar(String ch) {
 List<_Token> _tokenize(String data) {
   final List<_Token> out = [];
   int i = 0;
+  String cmd = '';
+  int argIndex = 0;
+  bool isDigit(int u) => u >= 48 && u <= 57;
   while (i < data.length) {
     final String ch = data[i];
     if (ch == ' ' || ch == ',' || ch == '\n' || ch == '\t' || ch == '\r') {
@@ -585,17 +588,55 @@ List<_Token> _tokenize(String data) {
     }
     if (_isCmdChar(ch)) {
       out.add(_Token.cmd(ch));
+      cmd = ch;
+      argIndex = 0;
+      i++;
+      continue;
+    }
+    // Flag busur (large-arc, sweep) selalu 1 digit, boleh menempel
+    // ke angka berikutnya tanpa pemisah ("0 01.18").
+    if ((cmd == 'A' || cmd == 'a') &&
+        (argIndex % 7 == 3 || argIndex % 7 == 4) &&
+        (ch == '0' || ch == '1')) {
+      out.add(_Token.num(ch == '1' ? 1 : 0));
+      argIndex++;
       i++;
       continue;
     }
     int j = i;
-    if (data[j] == '-') j++;
-    while (j < data.length &&
-        ((data.codeUnitAt(j) >= 48 && data.codeUnitAt(j) <= 57) ||
-            data[j] == '.')) {
-      j++;
+    if (data[j] == '-' || data[j] == '+') j++;
+    bool seenDot = false;
+    while (j < data.length) {
+      final int u = data.codeUnitAt(j);
+      if (isDigit(u)) {
+        j++;
+      } else if (data[j] == '.' && !seenDot) {
+        // Titik kedua memulai angka baru: ".93.96" -> 0.93 dan 0.96.
+        seenDot = true;
+        j++;
+      } else {
+        break;
+      }
     }
-    out.add(_Token.num(double.parse(data.substring(i, j))));
+    // Eksponen opsional (1e-3).
+    if (j < data.length && (data[j] == 'e' || data[j] == 'E')) {
+      int k = j + 1;
+      if (k < data.length && (data[k] == '-' || data[k] == '+')) k++;
+      if (k < data.length && isDigit(data.codeUnitAt(k))) {
+        while (k < data.length && isDigit(data.codeUnitAt(k))) {
+          k++;
+        }
+        j = k;
+      }
+    }
+    final double? v = double.tryParse(data.substring(i, j));
+    if (v == null || j == i) {
+      // Karakter tak dikenal / angka rusak: lewati, jangan crash.
+      i = j > i ? j : i + 1;
+      continue;
+    }
+    out.add(_Token.num(v));
+    argIndex++;
     i = j;
   }
   return out;
@@ -627,7 +668,11 @@ class VectorIcon extends StatelessWidget {
     if (hit != null) return hit;
     final Path p = Path()..fillType = PathFillType.evenOdd;
     for (final String d in paths) {
-      p.addPath(_parsePathData(d), Offset.zero);
+      try {
+        p.addPath(_parsePathData(d), Offset.zero);
+      } catch (_) {
+        // Path rusak tidak boleh menjatuhkan halaman (kotak abu-abu).
+      }
     }
     _cache[key] = p;
     return p;

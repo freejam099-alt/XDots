@@ -8,7 +8,6 @@ import 'package:loading_animation_widget/loading_animation_widget.dart';
 import 'app_theme.dart';
 import 'chat_data.dart';
 import 'model_store.dart';
-import '../services/services_page.dart';
 import '../setting/openai/openai_list_page.dart';
 import 'widgets/provider_rows.dart';
 import 'widgets/vector_icons.dart';
@@ -95,33 +94,18 @@ class _ServerPanelState extends State<ServerPanel> {
         appBar: AppBar(
           backgroundColor: Colors.transparent,
           elevation: 0,
-          automaticallyImplyLeading: false,
+          iconTheme: IconThemeData(color: c.textPrimary),
           title: Text(
-            'Server',
+            'Kelola Model',
             style: TextStyle(
                 color: c.textPrimary, fontWeight: FontWeight.bold),
           ),
-          actions: [
-            GestureDetector(
-              behavior: HitTestBehavior.opaque,
-              onTap: () => F.push(const ServicesPage()),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Center(
-                  child: Text(
-                    'Konfigurasi',
-                    style: TextStyle(fontSize: 14, color: c.accent),
-                  ),
-                ),
-              ),
-            ),
-          ],
         ),
         body: ListView(
           padding: EdgeInsets.only(
             left: AppDims.screenPaddingH,
             right: AppDims.screenPaddingH,
-            bottom: MediaQuery.paddingOf(context).bottom + 100,
+            bottom: MediaQuery.paddingOf(context).bottom + 24,
           ),
           children: [
             _GroupHeader(

@@ -337,7 +337,7 @@ class AppDims {
   static const double pillInnerPaddingH = 10.0;
 
   static const double inputWidthFactor = 0.88;
-  static const double inputMinHeight = 52.0;
+  static const double inputMinHeight = 60.0;
   static const int inputMaxLines = 5;
   static const double inputRadiusSingle = 26.0;
   static const double inputRadiusMulti = 24.0;

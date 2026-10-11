@@ -18,30 +18,18 @@ String _t(BuildContext context, String id, String en, String zh) {
   return id;
 }
 
-/// Ruang Kreasi: drawer geser dari KANAN (cermin History di kiri).
-/// Ganti Model Chat/Gambar/Video default + atur tools.
+/// Ruang Kreasi: bottom sheet yang bisa ditarik (BUKAN drawer samping,
+/// supaya tidak tertukar dengan History di kiri).
+/// Ganti Model Chat/Gambar/Video default (toggle) + atur tools.
 /// Dibuka dari tombol tengah navbar dan icon mic.
-Future<void> openRuangKreasi(BuildContext context) {
-  return showGeneralDialog(
+Future<void> openRuangKreasi(BuildContext context) async {
+  await showModalBottomSheet<void>(
     context: context,
-    barrierDismissible: true,
-    barrierLabel: 'Ruang Kreasi',
+    isScrollControlled: true,
+    useSafeArea: true,
+    backgroundColor: Colors.transparent,
     barrierColor: Colors.black.withOpacity(0.35),
-    transitionDuration: AppDims.animNav,
-    pageBuilder: (ctx, _, __) => const _RuangKreasiDrawer(),
-    transitionBuilder: (ctx, anim, _, child) {
-      final CurvedAnimation curved = CurvedAnimation(
-        parent: anim,
-        curve: Curves.easeOutCubic,
-      );
-      return SlideTransition(
-        position: Tween<Offset>(
-          begin: const Offset(1, 0),
-          end: Offset.zero,
-        ).animate(curved),
-        child: FadeTransition(opacity: curved, child: child),
-      );
-    },
+    builder: (ctx) => const _RuangKreasiSheet(),
   );
 }
 
@@ -87,44 +75,36 @@ List<_ModelOption> _videoOptions() {
   ];
 }
 
-class _RuangKreasiDrawer extends StatefulWidget {
-  const _RuangKreasiDrawer();
+class _RuangKreasiSheet extends StatelessWidget {
+  const _RuangKreasiSheet();
 
-  @override
-  State<_RuangKreasiDrawer> createState() => _RuangKreasiDrawerState();
-}
-
-class _RuangKreasiDrawerState extends State<_RuangKreasiDrawer> {
   @override
   Widget build(BuildContext context) {
     final AppColors c = AppColors.of(context);
-    final double width = (MediaQuery.of(context).size.width * 0.85)
-        .clamp(0.0, 360.0)
-        .toDouble();
-    return DefaultTextStyle(
-      style: const TextStyle(fontFamily: AppDims.fontFamily),
-      child: Align(
-        alignment: Alignment.centerRight,
-        child: Container(
-          width: width,
-          height: double.infinity,
-          decoration: BoxDecoration(
-            color: c.surface,
-            borderRadius: const BorderRadius.only(
-              topLeft: Radius.circular(26),
-              bottomLeft: Radius.circular(26),
-            ),
-            boxShadow: [c.shadowFloat],
+    return DraggableScrollableSheet(
+      expand: false,
+      initialChildSize: 0.92,
+      minChildSize: 0.5,
+      maxChildSize: 0.96,
+      builder: (ctx, controller) {
+        return Material(
+          color: c.surface,
+          clipBehavior: Clip.antiAlias,
+          borderRadius:
+              const BorderRadius.vertical(top: Radius.circular(28)),
+          child: DefaultTextStyle(
+            style: const TextStyle(fontFamily: AppDims.fontFamily),
+            child: _RuangKreasiList(controller: controller),
           ),
-          child: const _RuangKreasiList(),
-        ),
-      ),
+        );
+      },
     );
   }
 }
 
 class _RuangKreasiList extends StatefulWidget {
-  const _RuangKreasiList();
+  final ScrollController controller;
+  const _RuangKreasiList({required this.controller});
 
   @override
   State<_RuangKreasiList> createState() => _RuangKreasiListState();
@@ -135,7 +115,9 @@ class _RuangKreasiListState extends State<_RuangKreasiList> {
   Widget build(BuildContext context) {
     final AppColors c = AppColors.of(context);
     return SafeArea(
+      top: false,
       child: ListView(
+        controller: widget.controller,
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
         children: [
               Center(
@@ -201,11 +183,10 @@ class _RuangKreasiListState extends State<_RuangKreasiList> {
               GestureDetector(
                 behavior: HitTestBehavior.opaque,
                 onTap: () {
-                  Navigator.of(context).pop();
-                  Navigator.of(context).push(
-                    MaterialPageRoute(
-                        builder: (_) => const ServerPanel()),
-                  );
+                  final NavigatorState nav = Navigator.of(context);
+                  nav.pop();
+                  nav.push(MaterialPageRoute<void>(
+                      builder: (_) => const ServerPanel()));
                 },
                 child: Container(
                   height: 52,
@@ -296,7 +277,7 @@ class _ModelSection extends StatelessWidget {
   Widget build(BuildContext context) {
     final AppColors c = AppColors.of(context);
     return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.only(bottom: 14),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -305,76 +286,102 @@ class _ModelSection extends StatelessWidget {
                   fontSize: 16,
                   fontWeight: FontWeight.bold,
                   color: c.textPrimary)),
-          const SizedBox(height: 6),
+          const SizedBox(height: 8),
           Container(
             padding:
-                const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
             decoration: BoxDecoration(
               color: c.surfaceSoft,
               borderRadius: BorderRadius.circular(22),
             ),
             child: options.isEmpty
                 ? Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    padding: const EdgeInsets.symmetric(vertical: 12),
                     child: Text(emptyHint,
                         style: TextStyle(
-                            fontSize: 14,
-                            color: c.textMuted)),
+                            fontSize: 14, color: c.textMuted)),
                   )
                 : Column(
                     children: [
-                      for (int oi = 0;
-                          oi < options.length;
-                          oi++) ...[
-                        GestureDetector(
-                          behavior: HitTestBehavior.opaque,
-                          onTap: () => onPick(options[oi].id),
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(
-                                vertical: 9),
-                            child: Row(
-                              children: [
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text(options[oi].id,
-                                          style: TextStyle(
-                                              fontSize: 15,
-                                              color: c.textPrimary)),
-                                      if (options[oi]
-                                          .subtitle
-                                          .isNotEmpty)
-                                        Text(
-                                            options[oi].subtitle,
-                                            style: TextStyle(
-                                                fontSize: 12,
-                                                color: c.textMuted)),
-                                    ],
-                                  ),
-                                ),
-                                ChevronSelectIcon(
-                                  size: 18,
-                                  color: current == options[oi].id
-                                      ? c.accent
-                                      : c.textMuted,
-                                ),
-                              ],
-                            ),
-                          ),
+                      for (int oi = 0; oi < options.length; oi++) ...[
+                        _ModelToggleRow(
+                          option: options[oi],
+                          selected: current == options[oi].id,
+                          // Hanya satu model default: nyalakan = pilih,
+                          // matikan = kosongkan pilihan.
+                          onChanged: (bool v) =>
+                              onPick(v ? options[oi].id : ''),
                         ),
                         if (oi != options.length - 1)
                           Container(
                             height: 1,
-                            color:
-                                Colors.white.withOpacity(0.65),
+                            color: c.textMuted.withOpacity(0.15),
                           ),
                       ],
                     ],
                   ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _ModelToggleRow extends StatelessWidget {
+  final _ModelOption option;
+  final bool selected;
+  final ValueChanged<bool> onChanged;
+
+  const _ModelToggleRow({
+    required this.option,
+    required this.selected,
+    required this.onChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final AppColors c = AppColors.of(context);
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: () => onChanged(!selected),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        child: Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    option.id,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 15,
+                      color: c.textPrimary,
+                      fontWeight:
+                          selected ? FontWeight.w600 : FontWeight.normal,
+                    ),
+                  ),
+                  if (option.subtitle.isNotEmpty)
+                    Text(
+                      option.subtitle,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style:
+                          TextStyle(fontSize: 12, color: c.textMuted),
+                    ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            Switch.adaptive(
+              value: selected,
+              activeColor: c.accent,
+              onChanged: onChanged,
+            ),
+          ],
+        ),
       ),
     );
   }

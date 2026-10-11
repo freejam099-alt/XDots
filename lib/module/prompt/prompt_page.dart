@@ -49,7 +49,7 @@ class _CommandPageState extends ConsumerState<PromptPage> {
               }
               return ListView.separated(
                   padding: EdgeInsets.only(
-                      top: 15, bottom: MediaQuery.paddingOf(context).bottom + kBottomNavigationBarHeight),
+                      top: 15, bottom: 16),
                   itemBuilder: (context, index) {
                     return Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 15),

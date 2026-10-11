@@ -43,8 +43,6 @@ class FloatingPillNavbar extends StatelessWidget {
       child: Container(
         width: pillWidth,
         height: AppDims.pillHeight,
-        padding: const EdgeInsets.symmetric(
-            horizontal: AppDims.pillInnerPaddingH),
         decoration: ShapeDecoration(
           color: c.pillBg,
           shape: const StadiumBorder(),
@@ -52,6 +50,8 @@ class FloatingPillNavbar extends StatelessWidget {
         ),
         child: LayoutBuilder(
           builder: (context, constraints) {
+            // Tiap ikon menempati satu slot sama lebar, indikator
+            // memakai slot yang sama -> selalu pas di tengah ikon.
             final double slotW = constraints.maxWidth / icons.length;
             return Stack(
               children: [
@@ -60,10 +60,7 @@ class FloatingPillNavbar extends StatelessWidget {
                   curve: Curves.easeOutCubic,
                   left: currentIndex * slotW +
                       (slotW - AppDims.indicatorDiameter) / 2,
-                  top: (AppDims.pillHeight -
-                          AppDims.pillInnerPaddingH -
-                          AppDims.indicatorDiameter) /
-                      2,
+                  top: (AppDims.pillHeight - AppDims.indicatorDiameter) / 2,
                   child: Container(
                     width: AppDims.indicatorDiameter,
                     height: AppDims.indicatorDiameter,
@@ -74,15 +71,12 @@ class FloatingPillNavbar extends StatelessWidget {
                   ),
                 ),
                 Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                   children: List.generate(icons.length, (i) {
-                    return _PressScale(
-                      onTap: () => onTap(i),
-                      child: ConstrainedBox(
-                        constraints: const BoxConstraints(
-                          minWidth: 48,
-                          minHeight: 48,
-                        ),
+                    return SizedBox(
+                      width: slotW,
+                      height: AppDims.pillHeight,
+                      child: _PressScale(
+                        onTap: () => onTap(i),
                         child: Center(
                           child: SizedBox(
                             width: 24,
