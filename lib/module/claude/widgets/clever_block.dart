@@ -78,7 +78,7 @@ class CleverMessage extends StatelessWidget {
 List<_Block> _parse(String text) {
   final List<_Block> out = [];
   int cursor = 0;
-  final List<RegExpMatch> matches = _UrlRegExpAll(text);
+  final List<RegExpMatch> matches = _urlRegExpAll(text);
   for (final RegExpMatch m in matches) {
     if (m.start > cursor) {
       out.add(_TextBlock(text.substring(cursor, m.start)));
@@ -125,7 +125,7 @@ List<_Block> _groupImages(List<_Block> src) {
   return out;
 }
 
-List<RegExpMatch> _UrlRegExpAll(String text) {
+List<RegExpMatch> _urlRegExpAll(String text) {
   return _kUrlRegExp.allMatches(text).toList();
 }
 
@@ -252,7 +252,7 @@ class _ImageCard extends StatelessWidget {
               height: height,
               color: c.surfaceSoft,
               child: Center(
-                child: SizedBox(
+                child: const SizedBox(
                   width: 24,
                   height: 24,
                   child: CircularProgressIndicator(strokeWidth: 2),
@@ -282,7 +282,6 @@ class _ImageGrid extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final AppColors c = AppColors.of(context);
     return GridView.builder(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
@@ -306,7 +305,6 @@ class _VideoCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final AppColors c = AppColors.of(context);
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: () => _openUrl(url),
@@ -328,7 +326,7 @@ class _VideoCard extends StatelessWidget {
               right: 12,
               child: Text(
                 _domainOf(url),
-                style: TextStyle(
+                style: const TextStyle(
                     fontSize: 13, color: Colors.white70),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,

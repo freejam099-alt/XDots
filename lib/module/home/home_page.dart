@@ -89,6 +89,8 @@ class _HomePageState extends ConsumerState<HomePage>
   @override
   Widget build(BuildContext context) {
     var currentIndex = ref.watch(homeIndexProvider);
+    final bool kbOpen =
+        MediaQuery.of(context).viewInsets.bottom > 0;
 
     // Navbar hanya icon, tanpa nama. Tengah = mic Ruang Kreasi.
     const navIcons = [
@@ -102,6 +104,7 @@ class _HomePageState extends ConsumerState<HomePage>
     return Scaffold(
       extendBody: true,
       body: IndexedStack(
+        sizing: StackFit.expand,
         index: currentIndex,
         children: [
           ClaudeChatScreen(
@@ -115,19 +118,21 @@ class _HomePageState extends ConsumerState<HomePage>
           const SettingPage(),
         ],
       ),
-      bottomNavigationBar: Padding(
-        padding: EdgeInsets.only(
-          top: currentIndex == 0 ? AppDims.inputGapToNav : 0,
-          bottom: AppDims.pillBottomGap +
-              8.0 +
-              MediaQuery.paddingOf(context).bottom,
-        ),
-        child: FloatingPillNavbar(
-          icons: navIcons,
-          currentIndex: _toPillIndex(currentIndex),
-          onTap: _onPillTap,
-        ),
-      ),
+      bottomNavigationBar: kbOpen
+          ? const SizedBox.shrink()
+          : Padding(
+              padding: EdgeInsets.only(
+                top: currentIndex == 0 ? AppDims.inputGapToNav : 0,
+                bottom: AppDims.pillBottomGap +
+                    8.0 +
+                    MediaQuery.paddingOf(context).bottom,
+              ),
+              child: FloatingPillNavbar(
+                icons: navIcons,
+                currentIndex: _toPillIndex(currentIndex),
+                onTap: _onPillTap,
+              ),
+            ),
     );
   }
 }

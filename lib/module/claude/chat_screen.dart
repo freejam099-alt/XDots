@@ -96,7 +96,8 @@ class _ClaudeChatScreenState extends State<ClaudeChatScreen> {
   final List<ChatMsg> _messages = List.of(kDummyMessages);
 
   int? _editingIndex;
-  bool _typing = false;
+  // Flag typing untuk typing indicator AI (streaming nyata via controller).
+  final bool _typing = false;
 
   // Buffer streaming AI.
   String _streamBuf = '';
@@ -231,19 +232,19 @@ class _ClaudeChatScreenState extends State<ClaudeChatScreen> {
   }
 
   void _clearAll() {
-    for (int i = _messages.length - 1; i >= 0; i--) {
-      final ChatMsg removed = _messages[i];
+    final List<ChatMsg> removed = List.of(_messages);
+    _messages.clear();
+    for (int i = removed.length - 1; i >= 0; i--) {
       _listKey.currentState?.removeItem(
         i,
         (context, animation) => _transition(
           animation,
-          child: _bubbleFor(removed, -1),
+          child: _bubbleFor(removed[i], -1),
         ),
         duration: _kItemDuration,
       );
     }
     setState(() {
-      _messages.clear();
       _streamBuf = '';
       _streaming = false;
       _editingIndex = null;
@@ -303,8 +304,10 @@ class _ClaudeChatScreenState extends State<ClaudeChatScreen> {
   void _scrollToBottom() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!_scrollController.hasClients) return;
+      final position = _scrollController.position;
+      if (position.maxScrollExtent <= position.minScrollExtent) return;
       _scrollController.animateTo(
-        _scrollController.position.maxScrollExtent,
+        position.maxScrollExtent,
         duration: _kItemDuration,
         curve: _kItemCurve,
       );
@@ -391,22 +394,28 @@ class _ClaudeChatScreenState extends State<ClaudeChatScreen> {
   Widget build(BuildContext context) {
     applySystemUi(context);
     final double bottomSafe = MediaQuery.of(context).padding.bottom;
+    final bool kbOpen =
+        MediaQuery.of(context).viewInsets.bottom > 0;
     final Widget content = DefaultTextStyle(
       style: const TextStyle(fontFamily: AppDims.fontFamily),
       child: Stack(
+        fit: StackFit.expand,
         children: [
-          Container(
-            decoration: BoxDecoration(
-              gradient: c.bgGradientBottom,
+          Positioned.fill(
+            child: Container(
+              decoration: BoxDecoration(
+                gradient: c.bgGradientBottom,
+              ),
             ),
           ),
-          SafeArea(
-            bottom: false,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(
-                  horizontal: AppDims.screenPaddingH),
-              child: Column(
-                children: [
+          Positioned.fill(
+            child: SafeArea(
+              bottom: false,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                    horizontal: AppDims.screenPaddingH),
+                child: Column(
+                  children: [
                   const SizedBox(height: 8),
                   MuseHeader(
                     onMenuTap: _openHistory,
@@ -426,13 +435,15 @@ class _ClaudeChatScreenState extends State<ClaudeChatScreen> {
                     ),
                   if (!widget.hideInputBar)
                     const SizedBox(height: AppDims.inputGapToNav),
-                  if (!widget.embedded)
+                  // Navbar disembunyikan saat keyboard terbuka agar
+                  // tidak overflow / tertutup keyboard.
+                  if (!widget.embedded && !kbOpen)
                     FloatingPillNavbar(
                       icons: widget.navIcons,
                       currentIndex: widget.navIndex,
                       onTap: widget.onNavTap,
                     ),
-                  if (!widget.embedded)
+                  if (!widget.embedded && !kbOpen)
                     SizedBox(
                         height:
                             AppDims.pillBottomGap + bottomSafe),
@@ -440,6 +451,7 @@ class _ClaudeChatScreenState extends State<ClaudeChatScreen> {
                 ],
               ),
             ),
+          ),
           ),
         ],
       ),
@@ -455,26 +467,37 @@ class _ClaudeChatScreenState extends State<ClaudeChatScreen> {
   }
 
   Widget _buildList() {
-    if (_messages.isEmpty && !_streaming && !_typing) {
-      return Center(
-        child: Text(
-          'Mulai percakapan baru',
-          style: TextStyle(fontSize: 15, color: c.textMuted),
+    // AnimatedList selalu mounted (tidak di-swap) agar GlobalKey,
+    // ScrollController, dan animasi remove tetap valid; empty state
+    // hanya overlay di atasnya.
+    final bool empty =
+        _messages.isEmpty && !_streaming && !_typing;
+    return Stack(
+      children: [
+        AnimatedList(
+          key: _listKey,
+          controller: _scrollController,
+          padding: const EdgeInsets.only(bottom: 12),
+          initialItemCount: _messages.length,
+          itemBuilder: (context, i, animation) {
+            if (i >= _messages.length) {
+              return const SizedBox.shrink();
+            }
+            return _transition(
+              animation,
+              child: _spaced(i, _bubbleFor(_messages[i], i)),
+            );
+          },
         ),
-      );
-    }
-    return AnimatedList(
-      key: _listKey,
-      controller: _scrollController,
-      padding: const EdgeInsets.only(bottom: 12),
-      initialItemCount: _messages.length,
-      itemBuilder: (context, i, animation) {
-        if (i >= _messages.length) return const SizedBox.shrink();
-        return _transition(
-          animation,
-          child: _spaced(i, _bubbleFor(_messages[i], i)),
-        );
-      },
+        if (empty)
+          Center(
+            child: Text(
+              'Mulai percakapan baru',
+              style:
+                  TextStyle(fontSize: 15, color: c.textMuted),
+            ),
+          ),
+      ],
     );
   }
 
@@ -677,7 +700,7 @@ class _ClaudeChatScreenState extends State<ClaudeChatScreen> {
       behavior: HitTestBehavior.opaque,
       onTap: () => _openActions(index),
       child: Padding(
-        padding: EdgeInsets.all(8),
+        padding: const EdgeInsets.all(8),
         child: Icon(Icons.more_horiz,
             size: 18, color: c.textMuted),
       ),
@@ -778,7 +801,7 @@ class _ClaudeChatScreenState extends State<ClaudeChatScreen> {
                   decoration: const InputDecoration(
                     border: InputBorder.none,
                     isDense: true,
-                    contentPadding: EdgeInsets.zero,
+                    contentPadding: const EdgeInsets.zero,
                   ),
                 ),
                 const SizedBox(height: 8),

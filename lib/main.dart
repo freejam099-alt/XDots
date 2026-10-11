@@ -1,7 +1,6 @@
 import 'package:chat_bot/module/claude/app_theme.dart';
 import 'package:chat_bot/module/splash_page.dart';
 import 'package:chat_bot/utils/hive_box.dart';
-import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 
 import 'base.dart';

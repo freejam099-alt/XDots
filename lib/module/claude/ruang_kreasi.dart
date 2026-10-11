@@ -116,7 +116,7 @@ class _RuangKreasiDrawerState extends State<_RuangKreasiDrawer> {
             ),
             boxShadow: [c.shadowFloat],
           ),
-          child: _RuangKreasiList(),
+          child: const _RuangKreasiList(),
         ),
       ),
     );
@@ -392,7 +392,6 @@ class _ToolToggleRow extends StatefulWidget {
 class _ToolToggleRowState extends State<_ToolToggleRow> {
   @override
   Widget build(BuildContext context) {
-    final AppColors c = AppColors.of(context);
     final bool enabled = ModelStore.toolEnabled(widget.tool.id);
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
@@ -501,7 +500,7 @@ class _SearchToggleRowState extends State<_SearchToggleRow> {
                       fontSize: 14, color: c.textHint),
                   border: InputBorder.none,
                   isDense: true,
-                  contentPadding: EdgeInsets.zero,
+                  contentPadding: const EdgeInsets.zero,
                 ),
                 onSubmitted: (v) {
                   ModelStore.setSearchKey(widget.service.id, v.trim());
@@ -554,7 +553,7 @@ class _McpToggleRowState extends State<_McpToggleRow> {
                 setState(() {});
               },
               child: Padding(
-                padding: EdgeInsets.all(6),
+                padding: const EdgeInsets.all(6),
                 child: Icon(Icons.delete_outline,
                     size: 18, color: c.pdfRed),
               ),
@@ -614,7 +613,7 @@ class _AddCustomMcpRowState extends State<_AddCustomMcpRow> {
                       fontSize: 15, color: c.textHint),
                   border: InputBorder.none,
                   isDense: true,
-                  contentPadding: EdgeInsets.zero,
+                  contentPadding: const EdgeInsets.zero,
                 ),
                 onSubmitted: (_) => _add(),
               ),

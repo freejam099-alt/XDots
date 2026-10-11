@@ -43,7 +43,7 @@ class FileCard extends StatelessWidget {
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Center(
-                  child: Text('PDF',
+                  child: const Text('PDF',
                       style: TextStyle(
                           color: Colors.white,
                           fontWeight: FontWeight.bold,
@@ -158,11 +158,11 @@ class CheckoutCard extends StatelessWidget {
                               style: TextStyle(
                                   fontSize: 10,
                                   color: c.textPrimary))),
-                      SizedBox(width: 6),
+                      const SizedBox(width: 6),
                       Text('Review order',
                           style: TextStyle(
                               fontSize: 13, color: c.textPrimary)),
-                      SizedBox(width: 4),
+                      const SizedBox(width: 4),
                       Icon(Icons.open_in_full,
                           size: 14, color: c.textPrimary),
                     ],
@@ -206,7 +206,7 @@ class CheckoutCard extends StatelessWidget {
                         children: [
                           Icon(Icons.circle,
                               size: 8, color: c.linkGreen),
-                          SizedBox(width: 4),
+                          const SizedBox(width: 4),
                           Text('Pay with Link',
                               style: TextStyle(
                                   fontSize: 12,
@@ -433,10 +433,10 @@ class _BrowserCardState extends State<BrowserCard> {
                     _Legend(
                         color: c.seatAvailable,
                         label: 'Available'),
-                    SizedBox(width: 12),
+                    const SizedBox(width: 12),
                     _Legend(
                         color: c.seatTaken, label: 'Taken'),
-                    SizedBox(width: 12),
+                    const SizedBox(width: 12),
                     _Legend(
                         color: c.seatSelected,
                         label: 'Selected'),

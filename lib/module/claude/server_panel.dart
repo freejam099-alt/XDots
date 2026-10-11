@@ -3,10 +3,8 @@ import 'package:chat_bot/hive_bean/local_chat_history.dart';
 import 'package:chat_bot/hive_bean/openai_bean.dart';
 import 'package:chat_bot/hive_bean/supported_models.dart';
 import 'package:chat_bot/utils/hive_box.dart';
-import 'package:flutter/material.dart';
 import 'package:loading_animation_widget/loading_animation_widget.dart';
 
-import '../../../utils/extension_string.dart';
 import 'app_theme.dart';
 import 'chat_data.dart';
 import 'model_store.dart';
@@ -192,7 +190,7 @@ class _ServerPanelState extends State<ServerPanel> {
                               fontSize: 15, color: c.textHint),
                           border: InputBorder.none,
                           isDense: true,
-                          contentPadding: EdgeInsets.zero,
+                          contentPadding: const EdgeInsets.zero,
                         ),
                         onSubmitted: (_) => _addMcp(),
                       ),
@@ -322,7 +320,7 @@ class _ManualRow extends StatelessWidget {
                       TextStyle(fontSize: 15, color: c.textHint),
                   border: InputBorder.none,
                   isDense: true,
-                  contentPadding: EdgeInsets.zero,
+                  contentPadding: const EdgeInsets.zero,
                 ),
                 onSubmitted: (_) => onAdd(),
               ),

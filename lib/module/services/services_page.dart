@@ -1,8 +1,6 @@
 import 'package:chat_bot/base.dart';
 import 'package:chat_bot/hive_bean/local_chat_history.dart';
-import 'package:chat_bot/module/setting/ollama/ollama_add_page.dart';
 
-import '../setting/gemini/gemini_viewmodel.dart';
 import '../setting/openai/openai_list_page.dart';
 import '../setting/openai/openai_viewmodel.dart';
 import '../setting/setting_page.dart';

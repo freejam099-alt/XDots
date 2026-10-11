@@ -141,11 +141,11 @@ Future<void> _showDeletePopup(
                   onDeleteMessages();
                 },
                 child: Padding(
-                  padding: EdgeInsets.symmetric(vertical: 10),
+                  padding: const EdgeInsets.symmetric(vertical: 10),
                   child: Row(
                     children: [
                       NewChatVectorIcon(size: 20),
-                      SizedBox(width: 10),
+                      const SizedBox(width: 10),
                       Text('Hapus Pesan',
                           style: TextStyle(
                               fontSize: 15, color: c.textPrimary)),

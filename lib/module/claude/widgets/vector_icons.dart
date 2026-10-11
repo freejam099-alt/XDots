@@ -442,7 +442,7 @@ List<double> _arcTo(
     (-x1p - cxp) / rx,
     (-y1p - cyp) / ry,
   );
-  final double twoPi = 2 * pi;
+  const double twoPi = 2 * pi;
   dTheta = dTheta % twoPi;
   if (!sweep && dTheta > 0) {
     dTheta -= twoPi;
@@ -744,21 +744,8 @@ class SettingVectorIcon extends StatelessWidget {
   }
 }
 
-/// Icon tengah: Ruang Kreasi (mic vector bawaan, 24x24).
-class MicVectorIcon extends StatelessWidget {
-  final double size;
-  final Color? color;
-  const MicVectorIcon({super.key, this.size = 24, this.color});
-
-  static const List<String> _paths = [
-    'M12,0.125C16.711,0.125 20.625,3.689 20.625,8.5C20.625,10.934 19.572,12.552 18.668,13.826C17.716,15.168 17.125,15.937 17.125,17V19.5C17.125,20.819 16.152,21.906 14.885,22.093C14.869,22.133 14.854,22.17 14.84,22.201C14.759,22.378 14.644,22.578 14.543,22.755L14.457,22.905C14.417,22.976 14.307,23.189 14.131,23.376L14.051,23.454L13.918,23.563C13.826,23.629 13.728,23.687 13.624,23.733L13.464,23.795L13.356,23.825C13.107,23.885 12.868,23.875 12.786,23.875H11.214C11.121,23.875 10.822,23.888 10.536,23.795C10.319,23.724 10.119,23.608 9.949,23.454C9.726,23.252 9.589,22.986 9.543,22.905L9.457,22.755C9.356,22.578 9.241,22.378 9.16,22.201C9.146,22.17 9.131,22.133 9.114,22.093C7.848,21.906 6.875,20.819 6.875,19.5V17C6.875,15.935 6.283,15.159 5.332,13.814C4.43,12.54 3.375,10.92 3.375,8.5C3.375,3.689 7.289,0.125 12,0.125ZM9.125,19.5C9.125,19.707 9.293,19.875 9.5,19.875H14.5C14.707,19.875 14.875,19.707 14.875,19.5V18.125H9.125L9.125,19.5ZM12,2.375C8.431,2.375 5.625,5.031 5.625,8.5C5.625,10.185 6.32,11.316 7.168,12.515C7.803,13.413 8.664,14.496 8.99,15.875L15.01,15.875C15.337,14.497 16.197,13.419 16.832,12.524C17.678,11.332 18.375,10.2 18.375,8.5C18.375,5.031 15.569,2.375 12,2.375Z',
-  ];
-
-  @override
-  Widget build(BuildContext context) {
-    return VectorIcon(_paths, size: size, color: color);
-  }
-}
+/// Icon tengah navbar dipakai dari VoiceVectorIcon (mic asli).
+/// (MicVectorIcon lama yang menyerupai bohlam sudah dihapus.)
 
 class PlusVectorIcon extends StatelessWidget {
   final double size;
@@ -851,7 +838,7 @@ class _MonoIcon extends StatelessWidget {
   final String letter;
   final double size;
   final Color? color;
-  const _MonoIcon(this.letter, {super.key, this.size = 24, this.color});
+  const _MonoIcon(this.letter, {this.size = 24, this.color});
 
   @override
   Widget build(BuildContext context) {
@@ -1150,4 +1137,48 @@ class ChevronSelectIcon extends StatelessWidget {
   Widget build(BuildContext context) {
     return VectorIcon(_paths, size: size, color: color);
   }
+}
+
+/// Pintu tunggal semua ikon Muse (ikon DIKUNCI: jangan ganti
+/// dengan Icons.* bawaan Flutter tanpa tugas eksplisit).
+/// Mic (voice), 4-titik (Ruang Kreasi), dan icon navbar dilarang diubah.
+class AppIcons {
+  AppIcons._();
+
+  static Widget chat({double size = 24, Color? color}) =>
+      ChatVectorIcon(size: size, color: color);
+
+  static Widget library({double size = 24, Color? color}) =>
+      LibraryVectorIcon(size: size, color: color);
+
+  /// Tengah navbar = Ruang Kreasi (mic asli).
+  static Widget creationSpace({double size = 24, Color? color}) =>
+      VoiceVectorIcon(size: size, color: color);
+
+  static Widget server({double size = 24, Color? color}) =>
+      ServerVectorIcon(size: size, color: color);
+
+  static Widget setting({double size = 20, Color? color}) =>
+      SettingVectorIcon(size: size, color: color);
+
+  static Widget plus({double size = 24, Color? color}) =>
+      PlusIcon32(size: size, color: color);
+
+  static Widget mic({double size = 22, Color? color}) =>
+      VoiceVectorIcon(size: size, color: color);
+
+  static Widget send({double size = 20, Color? color}) =>
+      SendVectorIcon(size: size, color: color);
+
+  static Widget edit({double size = 18, Color? color}) =>
+      EditVectorIcon(size: size, color: color);
+
+  static Widget newChat({double size = 22, Color? color}) =>
+      NewChatVectorIcon(size: size, color: color);
+
+  static Widget tools({double size = 18, Color? color}) =>
+      ToolVectorIcon(size: size, color: color);
+
+  static Widget browsing({double size = 16, Color? color}) =>
+      BrowsingVectorIcon(size: size, color: color);
 }
