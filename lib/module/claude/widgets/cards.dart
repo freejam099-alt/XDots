@@ -417,15 +417,6 @@ class _BrowserCardState extends State<BrowserCard> {
                                           BorderRadius.circular(6),
                                     ),
                                   ),
-                                  child: Container(
-                                    width: 22,
-                                    height: 22,
-                                    decoration: BoxDecoration(
-                                      color: seat,
-                                      borderRadius:
-                                          BorderRadius.circular(6),
-                                    ),
-                                  ),
                                 );
                               },
                             ),
