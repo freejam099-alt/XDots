@@ -235,10 +235,10 @@ class _RuangKreasiSheetState extends State<_RuangKreasiSheet> {
               _AddCustomMcpRow(onAdded: () => setState(() {})),
             ],
           ),
-          ),
-          ),
-      },
+        ),
         );
+      },
+    );
   }
 }
 
