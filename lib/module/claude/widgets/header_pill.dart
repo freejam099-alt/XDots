@@ -257,7 +257,6 @@ class MuseHeader extends StatelessWidget {
               ),
             ),
           ),
-        ),
         const SizedBox(width: 10),
         Container(
           height: 52,

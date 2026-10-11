@@ -158,7 +158,7 @@ class _ModelFetchPageState extends State<ModelFetchPage> {
                       color: c.surface,
                       borderRadius:
                           BorderRadius.circular(999),
-                      boxShadow: const [
+                      boxShadow: [
                         c.shadowFloat
                       ],
                     ),
@@ -237,7 +237,7 @@ class _ModelFetchPageState extends State<ModelFetchPage> {
                                 borderRadius:
                                     BorderRadius.circular(
                                         22),
-                                boxShadow: const [
+                                boxShadow: [
                                   c.shadowFloat
                                 ],
                               ),

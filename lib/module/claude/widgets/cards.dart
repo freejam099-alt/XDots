@@ -393,7 +393,7 @@ class _BrowserCardState extends State<BrowserCard> {
                                 final bool taken = (idx % 9 == 4);
                                 final bool sel =
                                     _selected.contains(idx);
-                                final Color c = sel
+                                final Color seat = sel
                                     ? c.seatSelected
                                     : (taken
                                         ? c.seatTaken
@@ -412,7 +412,16 @@ class _BrowserCardState extends State<BrowserCard> {
                                     width: 22,
                                     height: 22,
                                     decoration: BoxDecoration(
-                                      color: c,
+                                      color: seat,
+                                      borderRadius:
+                                          BorderRadius.circular(6),
+                                    ),
+                                  ),
+                                  child: Container(
+                                    width: 22,
+                                    height: 22,
+                                    decoration: BoxDecoration(
+                                      color: seat,
                                       borderRadius:
                                           BorderRadius.circular(6),
                                     ),

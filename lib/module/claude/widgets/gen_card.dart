@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 
 import '../app_theme.dart';
+import '../chat_data.dart';
 import 'bubble.dart';
 import 'streaming_text.dart';
 import 'tool_card.dart';
