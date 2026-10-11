@@ -99,7 +99,7 @@ class _SearchServiceRowState extends State<SearchServiceRow> {
                       fontSize: 14, color: c.textHint),
                   border: InputBorder.none,
                   isDense: true,
-                  contentPadding: const EdgeInsets.zero,
+                  contentPadding: EdgeInsets.zero,
                 ),
                 onSubmitted: (v) {
                   ModelStore.setSearchKey(

@@ -328,7 +328,7 @@ class _ChatInputBarState extends State<ChatInputBar> {
                     enabledBorder: InputBorder.none,
                     focusedBorder: InputBorder.none,
                     isDense: true,
-                    contentPadding: const EdgeInsets.zero,
+                    contentPadding: EdgeInsets.zero,
                   ),
                 ),
               ),

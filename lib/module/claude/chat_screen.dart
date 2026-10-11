@@ -801,7 +801,7 @@ class _ClaudeChatScreenState extends State<ClaudeChatScreen> {
                   decoration: const InputDecoration(
                     border: InputBorder.none,
                     isDense: true,
-                    contentPadding: const EdgeInsets.zero,
+                    contentPadding: EdgeInsets.zero,
                   ),
                 ),
                 const SizedBox(height: 8),

@@ -500,7 +500,7 @@ class _SearchToggleRowState extends State<_SearchToggleRow> {
                       fontSize: 14, color: c.textHint),
                   border: InputBorder.none,
                   isDense: true,
-                  contentPadding: const EdgeInsets.zero,
+                  contentPadding: EdgeInsets.zero,
                 ),
                 onSubmitted: (v) {
                   ModelStore.setSearchKey(widget.service.id, v.trim());
@@ -613,7 +613,7 @@ class _AddCustomMcpRowState extends State<_AddCustomMcpRow> {
                       fontSize: 15, color: c.textHint),
                   border: InputBorder.none,
                   isDense: true,
-                  contentPadding: const EdgeInsets.zero,
+                  contentPadding: EdgeInsets.zero,
                 ),
                 onSubmitted: (_) => _add(),
               ),
