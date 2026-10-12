@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -28,7 +29,8 @@ class MuseTarget {
 class MuseToolCall {
   final String name;
   final String arg;
-  const MuseToolCall(this.name, this.arg);
+  final String ratio;
+  const MuseToolCall(this.name, this.arg, [this.ratio = '']);
 }
 
 class MuseAiException implements Exception {
@@ -122,14 +124,19 @@ class MuseAi {
         'berawalan [HASIL TOOL].');
     b.writeln('- create_image [${_state('create_image')}]: membuat gambar '
         'memakai Model Gambar Default. Format: '
-        '[[tool:create_image|prompt gambar terperinci, bahasa Inggris]]');
+        '[[tool:create_image|prompt gambar terperinci, bahasa Inggris|rasio]]'
+        ' dengan rasio salah satu 1:1, 16:9, 9:16, 4:3, 3:4 sesuai gambar '
+        'yang diminta (potret 9:16 atau 3:4, lanskap 16:9 atau 4:3).');
     b.writeln('- create_video [${_state('create_video')}]: membuat video '
         'memakai Model Video Default (butuh server yang mendukung API '
         'video; bila gagal, jelaskan penyebabnya ke pengguna). Format: '
-        '[[tool:create_video|prompt video terperinci, bahasa Inggris]]');
+        '[[tool:create_video|prompt video terperinci, bahasa Inggris|rasio]]'
+        ' (rasio 16:9 atau 9:16).');
     b.writeln('- web_search_exa [${_exaState()}] (MCP Exa): mencari '
         'informasi terbaru di web. Format: '
-        '[[tool:web_search_exa|kata kunci pencarian]]');
+        '[[tool:web_search_exa|kata kunci pencarian]] (sumbernya otomatis '
+        'tampil sebagai ikon di akhir jawabanmu, jadi tidak perlu daftar '
+        'URL panjang).');
     b.writeln('- web_fetch_exa [${_exaState()}] (MCP Exa): membaca isi '
         'halaman web dari URL. Format: '
         '[[tool:web_fetch_exa|https://alamat.lengkap]]');
@@ -246,32 +253,181 @@ class MuseAi {
   // -- Streaming ---------------------------------------------------------------
 
   /// Mengalirkan token balasan AI untuk riwayat [msgs].
-  static Future<Stream<String>> stream(List<ChatMsg> msgs) async {
+  /// Bila model menolak gambar, otomatis diulang tanpa gambar.
+  static Stream<String> stream(List<ChatMsg> msgs) async* {
     final MuseTarget? t = resolve();
     if (t == null) {
       throw const MuseAiException(
-          'Belum ada server. Tambahkan di tab Server atau lewat '
-          'Custom Endpoint (Ruang Kreasi > Kelola model).');
+          'Belum ada server. Tambahkan di tab Server (atau Custom '
+          'Endpoint di bawahnya).');
     }
     final List<ChatItem> items = await buildItems(msgs);
     if (!items.any((ChatItem e) => e.type != ChatType.system.index)) {
       throw const MuseAiException('Tidak ada pesan untuk dikirim.');
     }
-    final int code = t.bean.model ?? APIType.openAI.code;
-    const Set<int> mapped = <int>{1, 2, 3, 5, 6, 7};
-    final String temp = HiveBox().temperature;
-    final Stream<GenerateContentBean> s;
-    if (mapped.contains(code)) {
-      s = await API().streamGenerateContent(
-          temp, t.bean, t.model, items, <RequestParams>[], false);
-    } else {
-      // Tipe lain (OpenAI-compatible) memakai implementasi ChatGPT.
-      final List<RequestParams> params =
-          API().generateChatHistory(items, false);
-      s = await ChatGPTImpl().streamGenerateContent(
-          temp, t.bean, t.model, items, params, false);
+    final bool hasImg = items.any((ChatItem e) =>
+        (e.images ?? <String>[]).any((String x) => x.isNotEmpty));
+    bool got = false;
+    try {
+      await for (final String tok in _open(t, items)) {
+        got = true;
+        yield tok;
+      }
+    } catch (e) {
+      if (!hasImg || got) rethrow;
+      yield '_Model ini tidak dapat membaca gambar, jawaban hanya '
+          'berdasarkan teks._\n\n';
+      final List<ChatItem> plain = <ChatItem>[
+        for (final ChatItem i in items)
+          ChatItem(
+            content: '${i.content ?? ''}'
+                '${(i.images ?? <String>[]).any((String x) => x.isNotEmpty) ? '\n[gambar dilampirkan tetapi tidak dapat dilihat]' : ''}',
+            time: i.time,
+            type: i.type,
+            status: i.status,
+            images: <String>[],
+          ),
+      ];
+      await for (final String tok in _open(t, plain)) {
+        yield tok;
+      }
     }
-    return s.map((GenerateContentBean e) => e.content ?? '');
+  }
+
+  static Stream<String> _open(MuseTarget t, List<ChatItem> items) async* {
+    final int code = t.bean.model ?? APIType.openAI.code;
+    if (code == APIType.gemini.code ||
+        code == APIType.ollama.code ||
+        code == APIType.zhipu.code) {
+      final Stream<GenerateContentBean> s = await API().streamGenerateContent(
+          HiveBox().temperature, t.bean, t.model, items, <RequestParams>[],
+          false);
+      await for (final GenerateContentBean e in s) {
+        yield e.content ?? '';
+      }
+      return;
+    }
+    yield* _streamOpenAI(t, items);
+  }
+
+  static String _mime(String b64) {
+    if (b64.startsWith('iVBOR')) return 'image/png';
+    if (b64.startsWith('R0lGOD')) return 'image/gif';
+    if (b64.startsWith('UklGR')) return 'image/webp';
+    return 'image/jpeg';
+  }
+
+  static String _apiError(int? code, String body) {
+    try {
+      final dynamic j = jsonDecode(body);
+      if (j is Map) {
+        final dynamic err = j['error'];
+        if (err is Map && err['message'] != null) {
+          return '${err['message']} (HTTP $code)';
+        }
+        if (err is String) return '$err (HTTP $code)';
+        if (j['message'] != null) return '${j['message']} (HTTP $code)';
+      }
+    } catch (_) {}
+    final String sn = body.length > 200 ? body.substring(0, 200) : body;
+    return 'Server menolak permintaan (HTTP $code) $sn';
+  }
+
+  /// Chat completions OpenAI-compatible dengan format multimodal standar
+  /// (image_url + data URI), streaming SSE.
+  static Stream<String> _streamOpenAI(
+      MuseTarget t, List<ChatItem> items) async* {
+    final List<RequestParams> params = API().generateChatHistory(items, false);
+    final List<Map<String, dynamic>> messages = <Map<String, dynamic>>[];
+    for (final RequestParams p in params) {
+      final String role = p.role == ChatType.bot.index ? 'assistant' : 'user';
+      final List<String> texts =
+          p.content.where((String e) => e.trim().isNotEmpty).toList();
+      final List<String> imgs =
+          p.images.where((String e) => e.isNotEmpty).toList();
+      if (texts.isEmpty && imgs.isEmpty) continue;
+      if (imgs.isEmpty) {
+        messages.add(<String, dynamic>{
+          'role': role,
+          'content': texts.join('\n\n'),
+        });
+      } else {
+        messages.add(<String, dynamic>{
+          'role': role,
+          'content': <Map<String, dynamic>>[
+            <String, dynamic>{
+              'type': 'text',
+              'text': texts.isEmpty ? 'Lihat gambar ini.' : texts.join('\n\n'),
+            },
+            for (final String img in imgs)
+              <String, dynamic>{
+                'type': 'image_url',
+                'image_url': <String, dynamic>{
+                  'url': 'data:${_mime(img)};base64,$img',
+                },
+              },
+          ],
+        });
+      }
+    }
+    final String base = normalizeBase(t.bean.apiServer ?? '');
+    final Dio dio = Dio(BaseOptions(
+      connectTimeout: const Duration(seconds: 30),
+      receiveTimeout: const Duration(minutes: 5),
+      headers: <String, dynamic>{
+        'Authorization': 'Bearer ${t.bean.apiKey ?? ''}',
+        'Content-Type': 'application/json',
+        'Accept': 'text/event-stream',
+      },
+    ));
+    final Response<ResponseBody> res = await dio.post<ResponseBody>(
+      '$base/v1/chat/completions',
+      data: <String, dynamic>{
+        'model': t.model,
+        'messages': messages,
+        'stream': true,
+        'temperature': double.tryParse(HiveBox().temperature) ?? 0.5,
+      },
+      options: Options(
+        responseType: ResponseType.stream,
+        validateStatus: (int? s) => true,
+      ),
+    );
+    final ResponseBody rb = res.data!;
+    if ((res.statusCode ?? 500) >= 400) {
+      final List<int> bytes = <int>[];
+      await for (final List<int> c in rb.stream) {
+        bytes.addAll(c);
+      }
+      throw MuseAiException(
+          _apiError(res.statusCode, utf8.decode(bytes, allowMalformed: true)));
+    }
+    final Stream<String> lines = rb.stream
+        .cast<List<int>>()
+        .transform(utf8.decoder)
+        .transform(const LineSplitter());
+    await for (final String line in lines) {
+      final String l = line.trim();
+      if (!l.startsWith('data:')) continue;
+      final String payload = l.substring(5).trim();
+      if (payload == '[DONE]') break;
+      if (payload.isEmpty) continue;
+      String? piece;
+      try {
+        final dynamic j = jsonDecode(payload);
+        if (j is Map && j['error'] != null) {
+          throw MuseAiException(_apiError(null, payload));
+        }
+        if (j is Map && j['choices'] is List && (j['choices'] as List).isNotEmpty) {
+          final dynamic ch = (j['choices'] as List).first;
+          final dynamic d = ch is Map ? ch['delta'] : null;
+          if (d is Map && d['content'] is String) piece = d['content'] as String;
+        }
+      } on MuseAiException {
+        rethrow;
+      } catch (_) {}
+      if (piece != null && piece.isNotEmpty) yield piece;
+    }
   }
 
   static String friendlyError(Object e) {
@@ -299,7 +455,20 @@ class MuseAi {
   static MuseToolCall? parseTool(String text) {
     final RegExpMatch? m = _toolRe.firstMatch(text);
     if (m == null) return null;
-    return MuseToolCall(m.group(1) ?? '', (m.group(2) ?? '').trim());
+    final String name = m.group(1) ?? '';
+    String arg = (m.group(2) ?? '').trim();
+    String ratio = '';
+    if (name == 'create_image' || name == 'create_video') {
+      final int bar = arg.lastIndexOf('|');
+      if (bar >= 0) {
+        final String tail = arg.substring(bar + 1).trim();
+        if (RegExp(r'^\d{1,2}:\d{1,2}$').hasMatch(tail)) {
+          ratio = tail;
+          arg = arg.substring(0, bar).trim();
+        }
+      }
+    }
+    return MuseToolCall(name, arg, ratio);
   }
 
   /// Hapus penanda tool (lengkap maupun yang baru setengah tertulis
@@ -437,7 +606,21 @@ class MuseAi {
 
   /// Membuat gambar via endpoint OpenAI-compatible /v1/images/generations
   /// memakai Model Gambar Default. Mengembalikan path file lokal.
-  static Future<String> generateImage(String prompt) async {
+  static String sizeFor(String ratio) {
+    switch (ratio) {
+      case '16:9':
+      case '4:3':
+        return '1792x1024';
+      case '9:16':
+      case '3:4':
+        return '1024x1792';
+      default:
+        return '1024x1024';
+    }
+  }
+
+  static Future<String> generateImage(String prompt,
+      {String ratio = '1:1'}) async {
     final MuseTarget? t = resolve();
     if (t == null) {
       throw const MuseAiException('Belum ada server untuk membuat gambar.');
@@ -446,10 +629,25 @@ class MuseAi {
     if (model.isEmpty) model = 'dall-e-3';
     final String base = normalizeBase(t.bean.apiServer ?? '');
     final Dio dio = _dio(t.bean);
-    final Response<dynamic> res = await dio.post<dynamic>(
-      '$base/v1/images/generations',
-      data: <String, dynamic>{'model': model, 'prompt': prompt, 'n': 1},
-    );
+    final Map<String, dynamic> body = <String, dynamic>{
+      'model': model,
+      'prompt': prompt,
+      'n': 1,
+      'size': sizeFor(ratio),
+    };
+    Response<dynamic> res;
+    try {
+      res = await dio.post<dynamic>('$base/v1/images/generations', data: body);
+    } on DioException catch (e) {
+      if (e.response?.statusCode == 400 || e.response?.statusCode == 422) {
+        // Ukuran tidak didukung model: ulang tanpa size.
+        body.remove('size');
+        res = await dio.post<dynamic>('$base/v1/images/generations',
+            data: body);
+      } else {
+        rethrow;
+      }
+    }
     final dynamic data = res.data;
     if (data is! Map || data['data'] is! List || (data['data'] as List).isEmpty) {
       throw const MuseAiException('Server tidak mengembalikan gambar.');
@@ -466,6 +664,21 @@ class MuseAi {
       throw const MuseAiException('Format respons gambar tidak dikenali.');
     }
     return out.path;
+  }
+
+  /// Ambil URL sumber unik (per domain, maks 6) dari hasil pencarian.
+  static List<String> extractSources(String text) {
+    final Set<String> hosts = <String>{};
+    final List<String> out = <String>[];
+    for (final RegExpMatch m
+        in RegExp('https?://[^\\s)\\]>"\']+').allMatches(text)) {
+      final String u = m.group(0)!;
+      final String h = Uri.tryParse(u)?.host ?? '';
+      if (h.isEmpty || h.endsWith('exa.ai') || !hosts.add(h)) continue;
+      out.add(u);
+      if (out.length >= 6) break;
+    }
+    return out;
   }
 
   // -- Tool: video ------------------------------------------------------------------

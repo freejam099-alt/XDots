@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -11,6 +12,7 @@ import 'model_store.dart';
 import 'app_theme.dart';
 import 'chat_data.dart';
 import 'widgets/bubble.dart';
+import 'widgets/sources_row.dart';
 import 'widgets/cards.dart';
 import 'widgets/chat_input_bar.dart';
 import 'widgets/clever_block.dart';
@@ -106,6 +108,10 @@ class _ClaudeChatScreenState extends State<ClaudeChatScreen> {
   final bool _typing = false;
 
   // Status panggilan AI.
+  final ValueNotifier<String> _streamNotifier = ValueNotifier<String>('');
+  Timer? _flushTimer;
+  bool _hasShown = false;
+  List<String> _pendingSources = <String>[];
   double _inputH = 64;
   final GlobalKey _inputKey = GlobalKey();
   int _epoch = 0;
@@ -135,6 +141,8 @@ class _ClaudeChatScreenState extends State<ClaudeChatScreen> {
     }
     _controller.dispose();
     _editController.dispose();
+    _flushTimer?.cancel();
+    _streamNotifier.dispose();
     _scrollController.dispose();
     super.dispose();
   }
@@ -150,24 +158,42 @@ class _ClaudeChatScreenState extends State<ClaudeChatScreen> {
     _scrollToBottom();
   }
 
+  /// Token digabung ±45 ms: hanya bubble streaming yang dibangun ulang
+  /// (bukan seluruh list) sehingga scroll tetap mulus.
   void _appendToken(String token) {
-    setState(() {
-      _streamBuf += token;
-      _streaming = true;
+    _streamBuf += token;
+    if (!_streaming) setState(() => _streaming = true);
+    _flushTimer ??= Timer(const Duration(milliseconds: 45), () {
+      _flushTimer = null;
+      if (!mounted) return;
+      _streamNotifier.value = _streamBuf;
+      if (!_hasShown && MuseAi.stripToolMarkers(_streamBuf).isNotEmpty) {
+        setState(() => _hasShown = true);
+      }
+      _scrollToBottom(jump: true);
     });
-    _scrollToBottom(jump: true);
   }
 
   void _finishAiMessage() {
+    _flushTimer?.cancel();
+    _flushTimer = null;
     if (!_streaming) return;
     final String text = MuseAi.stripToolMarkers(_streamBuf).trim();
+    final List<String> src = List<String>.of(_pendingSources);
+    if (text.isNotEmpty) _pendingSources = <String>[];
     setState(() {
       _streamBuf = '';
       _streaming = false;
+      _hasShown = false;
     });
+    _streamNotifier.value = '';
     if (text.isNotEmpty) {
       _insertMessage(
-        ChatMsg(isUser: false, type: MessageType.text, text: text),
+        ChatMsg(
+            isUser: false,
+            type: MessageType.text,
+            text: text,
+            sources: src),
       );
     }
   }
@@ -261,6 +287,9 @@ class _ClaudeChatScreenState extends State<ClaudeChatScreen> {
         duration: _kItemDuration,
       );
     }
+    _flushTimer?.cancel();
+    _flushTimer = null;
+    _streamNotifier.value = '';
     setState(() {
       _streamBuf = '';
       _streaming = false;
@@ -269,6 +298,8 @@ class _ClaudeChatScreenState extends State<ClaudeChatScreen> {
       _rerun = false;
       _runId++;
       _epoch++;
+      _hasShown = false;
+      _pendingSources = <String>[];
       _autoTitle = null;
       _titleRequested = false;
     });
@@ -566,11 +597,11 @@ class _ClaudeChatScreenState extends State<ClaudeChatScreen> {
       switch (n) {
         case 'create_image':
           continueAi = false;
-          await _toolCreateImage(call.arg);
+          await _toolCreateMedia(false, call.arg, call.ratio);
           break;
         case 'create_video':
           continueAi = false;
-          await _toolCreateVideo(call.arg);
+          await _toolCreateMedia(true, call.arg, call.ratio);
           break;
         case 'tools_use':
           _noteTool('tools_use', null, MuseAi.toolsOverview());
@@ -587,50 +618,48 @@ class _ClaudeChatScreenState extends State<ClaudeChatScreen> {
     }
   }
 
-  Future<void> _toolCreateImage(String prompt) async {
-    final String p = prompt.isEmpty ? 'abstract colorful art' : prompt;
-    _genStart(false);
+  /// Alur gambar/video: berpikir -> prompt -> kotak rasio tumbuh dari
+  /// sudut AI -> membuat (gambar: kilau, video: border beam) -> hasil.
+  Future<void> _toolCreateMedia(
+      bool video, String prompt, String ratio) async {
+    final String p = prompt.isEmpty
+        ? (video ? 'a calm cinematic landscape' : 'abstract colorful art')
+        : prompt;
+    final String r = kGenRatios.containsKey(ratio)
+        ? ratio
+        : (video ? '16:9' : '1:1');
+    _genStart(video);
+    // Permintaan ke server berjalan paralel dengan animasi.
+    final Future<MapEntry<String?, Object?>> job =
+        (video ? MuseAi.generateVideo(p) : MuseAi.generateImage(p, ratio: r))
+            .then((String v) => MapEntry<String?, Object?>(v, null))
+            .catchError(
+                (Object e) => MapEntry<String?, Object?>(null, e));
+    await Future<void>.delayed(const Duration(milliseconds: 700));
+    if (!mounted) return;
     _genPrompt(p);
+    await Future<void>.delayed(const Duration(milliseconds: 1100));
+    if (!mounted) return;
+    _genUpdate((m) =>
+        m.copyWith(genRatio: r, genPhase: GenPhase.ratio.index));
+    await Future<void>.delayed(const Duration(milliseconds: 1100));
+    if (!mounted) return;
     _genSetPhase(GenPhase.generating.index);
-    try {
-      final String path = await MuseAi.generateImage(p);
-      if (!mounted) return;
+    final MapEntry<String?, Object?> res = await job;
+    if (!mounted) return;
+    if (res.key != null) {
       _genUpdate((m) => m.copyWith(
-          text: 'Gambar berhasil dibuat dan sudah ditampilkan ke '
-              'pengguna. Prompt: $p'));
-      _genSetResult(path);
-    } catch (e) {
-      if (!mounted) return;
+          text: '${video ? 'Video' : 'Gambar'} berhasil dibuat dan sudah '
+              'ditampilkan ke pengguna. Prompt: $p'));
+      _genSetResult(res.key!);
+    } else {
       final int gi = _lastGenIndex();
       if (gi >= 0) _delete(gi);
       _insertMessage(ChatMsg(
         isUser: false,
         type: MessageType.text,
-        text: '⚠️ Gagal membuat gambar: ${MuseAi.friendlyError(e)}',
-      ));
-    }
-  }
-
-  Future<void> _toolCreateVideo(String prompt) async {
-    final String p = prompt.isEmpty ? 'a calm cinematic landscape' : prompt;
-    _genStart(true);
-    _genPrompt(p);
-    _genSetPhase(GenPhase.generating.index);
-    try {
-      final String res = await MuseAi.generateVideo(p);
-      if (!mounted) return;
-      _genUpdate((m) => m.copyWith(
-          text: 'Video berhasil dibuat dan sudah ditampilkan ke '
-              'pengguna. Prompt: $p'));
-      _genSetResult(res);
-    } catch (e) {
-      if (!mounted) return;
-      final int gi = _lastGenIndex();
-      if (gi >= 0) _delete(gi);
-      _insertMessage(ChatMsg(
-        isUser: false,
-        type: MessageType.text,
-        text: '⚠️ Gagal membuat video: ${MuseAi.friendlyError(e)}',
+        text: '⚠️ Gagal membuat ${video ? 'video' : 'gambar'}: '
+            '${MuseAi.friendlyError(res.value ?? 'tidak diketahui')}',
       ));
     }
   }
@@ -644,6 +673,9 @@ class _ClaudeChatScreenState extends State<ClaudeChatScreen> {
       result = 'Gagal memanggil $name: ${MuseAi.friendlyError(e)}';
     }
     if (!mounted) return;
+    if (name == 'web_search_exa') {
+      _pendingSources = MuseAi.extractSources(result);
+    }
     _finishToolWithResult(name, result);
   }
 
@@ -753,8 +785,7 @@ class _ClaudeChatScreenState extends State<ClaudeChatScreen> {
   /// Typing / streaming berada DI DALAM list (paling bawah isi chat),
   /// jadi alurnya selalu dari atas ke bawah.
   Widget _tail() {
-    final String shown = MuseAi.stripToolMarkers(_streamBuf);
-    if (_streaming && shown.isNotEmpty) return _streamingBubble();
+    if (_streaming && _hasShown) return _streamingBubble();
     final bool cardBusy = _messages.isNotEmpty &&
         ((_messages.last.type == MessageType.tool &&
                 _messages.last.toolStatus == ToolStatus.running) ||
@@ -859,7 +890,11 @@ class _ClaudeChatScreenState extends State<ClaudeChatScreen> {
                 borderRadius:
                     BorderRadius.circular(AppDims.bubbleRadius),
               ),
-              child: StreamingText(text: MuseAi.stripToolMarkers(_streamBuf)),
+              child: ValueListenableBuilder<String>(
+                valueListenable: _streamNotifier,
+                builder: (context, v, _) =>
+                    StreamingText(text: MuseAi.stripToolMarkers(v)),
+              ),
             ),
           ),
         ],
@@ -1000,8 +1035,19 @@ class _ClaudeChatScreenState extends State<ClaudeChatScreen> {
               borderRadius:
                   BorderRadius.circular(AppDims.bubbleRadius),
             ),
-            // AI: markdown + blok cerdas (link/gambar/video).
-            child: CleverMessage(text: m.text),
+            // AI: markdown + blok cerdas (link/gambar/video) + sumber web.
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                CleverMessage(text: m.text),
+                if (m.sources.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 10),
+                    child: SourcesRow(urls: m.sources),
+                  ),
+              ],
+            ),
           ),
         ),
       ],

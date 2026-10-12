@@ -52,6 +52,7 @@ class ChatMsg {
   final String? genPrompt;
   final String genRatio;
   final String? genResult;
+  final List<String> sources;
 
   const ChatMsg({
     required this.isUser,
@@ -69,6 +70,7 @@ class ChatMsg {
     this.genPrompt,
     this.genRatio = 'auto',
     this.genResult,
+    this.sources = const [],
   });
 
   ChatMsg copyWith({
@@ -87,6 +89,7 @@ class ChatMsg {
     String? genPrompt,
     String? genRatio,
     String? genResult,
+    List<String>? sources,
   }) {
     return ChatMsg(
       isUser: isUser ?? this.isUser,
@@ -104,6 +107,7 @@ class ChatMsg {
       genPrompt: genPrompt ?? this.genPrompt,
       genRatio: genRatio ?? this.genRatio,
       genResult: genResult ?? this.genResult,
+      sources: sources ?? this.sources,
     );
   }
 
@@ -124,6 +128,7 @@ class ChatMsg {
       'genPrompt': genPrompt,
       'genRatio': genRatio,
       'genResult': genResult,
+      'sources': sources,
     };
   }
 
@@ -155,6 +160,10 @@ class ChatMsg {
       genPrompt: json['genPrompt'] as String?,
       genRatio: json['genRatio'] as String? ?? 'auto',
       genResult: json['genResult'] as String?,
+      sources: [
+        if (json['sources'] is List)
+          for (final dynamic e in json['sources'] as List) e.toString()
+      ],
     );
   }
 }

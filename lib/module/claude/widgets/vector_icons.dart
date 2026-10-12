@@ -1214,6 +1214,55 @@ class MoreDotsVectorIcon extends StatelessWidget {
   }
 }
 
+/// Ikon simpan (tray + panah turun), garis bulat seperti ikon navbar.
+class SaveVectorIcon extends StatelessWidget {
+  final double size;
+  final Color? color;
+  const SaveVectorIcon({super.key, this.size = 22, this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    return CustomPaint(
+      size: Size(size, size),
+      painter: _SavePainter(_adaptiveIconColor(context, color)),
+    );
+  }
+}
+
+class _SavePainter extends CustomPainter {
+  final Color color;
+  _SavePainter(this.color);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final double k = size.width / 24.0;
+    final Paint p = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.8 * k
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round;
+    final Path arrow = Path()
+      ..moveTo(12 * k, 3.5 * k)
+      ..lineTo(12 * k, 14.5 * k)
+      ..moveTo(7.5 * k, 10.5 * k)
+      ..lineTo(12 * k, 15 * k)
+      ..lineTo(16.5 * k, 10.5 * k);
+    final Path tray = Path()
+      ..moveTo(4 * k, 15 * k)
+      ..lineTo(4 * k, 18 * k)
+      ..quadraticBezierTo(4 * k, 20.5 * k, 6.5 * k, 20.5 * k)
+      ..lineTo(17.5 * k, 20.5 * k)
+      ..quadraticBezierTo(20 * k, 20.5 * k, 20 * k, 18 * k)
+      ..lineTo(20 * k, 15 * k);
+    canvas.drawPath(arrow, p);
+    canvas.drawPath(tray, p);
+  }
+
+  @override
+  bool shouldRepaint(covariant _SavePainter old) => old.color != color;
+}
+
 /// Pintu tunggal semua ikon Muse (ikon DIKUNCI: jangan ganti
 /// dengan Icons.* bawaan Flutter tanpa tugas eksplisit).
 /// Mic (voice) hanya untuk input bar. Icon tengah navbar = MicVectorIcon (bohlam).
