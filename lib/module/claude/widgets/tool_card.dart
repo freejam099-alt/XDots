@@ -16,11 +16,10 @@ Widget toolIconFor(String toolId, {double size = 18}) {
       id.contains('brave') ||
       id.contains('tavily') ||
       id.contains('doubao') ||
-      id.contains('firecrawl') ||
-      id.contains('dot_browsing')) {
+      id.contains('firecrawl')) {
     return const BrowsingVectorIcon(size: 16);
   }
-  if (id.startsWith('mcp') || id.contains('mcp')) {
+  if (id.startsWith('mcp') || id.contains('mcp') || id.contains('exa') || id.startsWith('web_')) {
     return McpVectorIcon(size: size);
   }
   return ToolVectorIcon(size: size);
@@ -55,21 +54,22 @@ class ToolCallCard extends StatelessWidget {
     final AppColors c = AppColors.of(context);
     final String full =
         detail == null || detail!.isEmpty ? toolName : '$toolName · $detail';
-    return Container(
-      width: double.infinity,
-      padding:
-          const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+    final bool toggle = enabled != null && onToggle != null;
+    final Widget card = Container(
+      width: toggle ? double.infinity : null,
+      constraints: const BoxConstraints(maxWidth: 280),
+      padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 7),
       decoration: BoxDecoration(
         color: c.surface,
-        borderRadius:
-            BorderRadius.circular(AppDims.bubbleRadius),
+        borderRadius: BorderRadius.circular(16),
         boxShadow: [c.shadowFloat],
       ),
       child: Row(
+        mainAxisSize: toggle ? MainAxisSize.max : MainAxisSize.min,
         children: [
-          toolIconFor(toolName),
-          const SizedBox(width: 10),
-          Expanded(
+          toolIconFor(toolName, size: 16),
+          const SizedBox(width: 8),
+          Flexible(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
@@ -100,7 +100,7 @@ class ToolCallCard extends StatelessWidget {
                     shortToolName(toolName),
                     key: ValueKey<String>(toolName),
                     style: TextStyle(
-                      fontSize: 15,
+                      fontSize: 13,
                       fontWeight: FontWeight.w600,
                       color: c.textPrimary,
                     ),
@@ -108,7 +108,7 @@ class ToolCallCard extends StatelessWidget {
                 ),
                 Text(
                   full,
-                  style: TextStyle(fontSize: 13, color: c.textMuted),
+                  style: TextStyle(fontSize: 11, color: c.textMuted),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -119,11 +119,11 @@ class ToolCallCard extends StatelessWidget {
           if (status == ToolStatus.running)
             LoadingAnimationWidget.prograssiveDots(
               color: c.accent,
-              size: 22,
+              size: 16,
             )
           else
-            Icon(Icons.check_circle, size: 20, color: c.accent),
-          if (enabled != null && onToggle != null) ...[
+            Icon(Icons.check_circle, size: 16, color: c.accent),
+          if (toggle) ...[
             const SizedBox(width: 4),
             Switch.adaptive(
               value: enabled!,
@@ -134,5 +134,7 @@ class ToolCallCard extends StatelessWidget {
         ],
       ),
     );
+    if (toggle) return card;
+    return Align(alignment: Alignment.centerLeft, child: card);
   }
 }

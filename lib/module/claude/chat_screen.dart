@@ -2,6 +2,8 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 
+import 'package:chat_bot/utils/hive_box.dart';
+
 import 'ai_service.dart';
 import 'history_sheet.dart';
 import 'model_store.dart';
@@ -71,6 +73,8 @@ class ClaudeChatScreen extends StatefulWidget {
   final int navIndex;
   final ValueChanged<int> onNavTap;
   final bool embedded;
+  /// Keyboard sedang terbuka (diatur oleh HomePage).
+  final bool keyboardOpen;
   final bool hideInputBar;
   final ChatUiController? controller;
 
@@ -80,6 +84,7 @@ class ClaudeChatScreen extends StatefulWidget {
     required this.navIndex,
     required this.onNavTap,
     this.embedded = false,
+    this.keyboardOpen = false,
     this.hideInputBar = false,
     this.controller,
   });
@@ -91,8 +96,8 @@ class ClaudeChatScreen extends StatefulWidget {
 class _ClaudeChatScreenState extends State<ClaudeChatScreen> {
   final ChatInputController _controller = ChatInputController();
   final TextEditingController _editController = TextEditingController();
-  final GlobalKey<AnimatedListState> _listKey =
-      GlobalKey<AnimatedListState>();
+  final GlobalKey<SliverAnimatedListState> _listKey =
+      GlobalKey<SliverAnimatedListState>();
   final ScrollController _scrollController = ScrollController();
   final List<ChatMsg> _messages = List.of(kDummyMessages);
 
@@ -101,6 +106,11 @@ class _ClaudeChatScreenState extends State<ClaudeChatScreen> {
   final bool _typing = false;
 
   // Status panggilan AI.
+  double _inputH = 64;
+  final GlobalKey _inputKey = GlobalKey();
+  int _epoch = 0;
+  String? _autoTitle;
+  bool _titleRequested = false;
   bool _aiBusy = false;
   bool _rerun = false;
   int _runId = 0;
@@ -114,6 +124,7 @@ class _ClaudeChatScreenState extends State<ClaudeChatScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _measureInput());
     widget.controller?._state = this;
   }
 
@@ -144,7 +155,7 @@ class _ClaudeChatScreenState extends State<ClaudeChatScreen> {
       _streamBuf += token;
       _streaming = true;
     });
-    _scrollToBottom();
+    _scrollToBottom(jump: true);
   }
 
   void _finishAiMessage() {
@@ -257,6 +268,9 @@ class _ClaudeChatScreenState extends State<ClaudeChatScreen> {
       _aiBusy = false;
       _rerun = false;
       _runId++;
+      _epoch++;
+      _autoTitle = null;
+      _titleRequested = false;
     });
   }
 
@@ -269,6 +283,9 @@ class _ClaudeChatScreenState extends State<ClaudeChatScreen> {
       );
       String title = firstUser.text.trim().replaceAll('\n', ' ');
       if (title.length > 24) title = '${title.substring(0, 24)}...';
+      if (_autoTitleEnabled() && (_autoTitle ?? '').isNotEmpty) {
+        title = _autoTitle!;
+      }
       ModelStore.saveSession(title, _messages);
     }
     _clearAll();
@@ -311,16 +328,35 @@ class _ClaudeChatScreenState extends State<ClaudeChatScreen> {
     _runAi();
   }
 
-  void _scrollToBottom() {
+  void _scrollToBottom({bool jump = false}) {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!_scrollController.hasClients) return;
       final position = _scrollController.position;
       if (position.maxScrollExtent <= position.minScrollExtent) return;
+      if (jump) {
+        // Saat streaming: ikuti ke bawah hanya bila pengguna belum
+        // menggulir ke atas.
+        if (position.pixels >= position.maxScrollExtent - 220) {
+          _scrollController.jumpTo(position.maxScrollExtent);
+        }
+        return;
+      }
       _scrollController.animateTo(
         position.maxScrollExtent,
         duration: _kItemDuration,
         curve: _kItemCurve,
       );
+    });
+  }
+
+  void _measureInput() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final RenderObject? ro = _inputKey.currentContext?.findRenderObject();
+      if (ro is RenderBox && ro.hasSize) {
+        final double h = ro.size.height;
+        if ((h - _inputH).abs() > 0.5) setState(() => _inputH = h);
+      }
     });
   }
 
@@ -428,9 +464,36 @@ class _ClaudeChatScreenState extends State<ClaudeChatScreen> {
     );
   }
 
+  /// Sama dengan toggle "Auto Generate Title" di Pengaturan.
+  bool _autoTitleEnabled() {
+    try {
+      return bool.parse(
+          HiveBox().appConfig.get(HiveBox.cAppConfigAutoGenerateTitle) ??
+              'true');
+    } catch (_) {
+      return true;
+    }
+  }
+
+  void _maybeTitle() {
+    if (_titleRequested || !_autoTitleEnabled()) return;
+    final bool hasUser =
+        _messages.any((m) => m.isUser && m.type == MessageType.text);
+    final bool hasAi = _messages.any((m) =>
+        !m.isUser && m.type == MessageType.text && !m.text.startsWith('⚠️'));
+    if (!hasUser || !hasAi) return;
+    _titleRequested = true;
+    final int epoch = _epoch;
+    MuseAi.generateTitle(List<ChatMsg>.of(_messages)).then((String? t) {
+      if (!mounted || epoch != _epoch) return;
+      if (t != null && t.isNotEmpty) _autoTitle = t;
+    });
+  }
+
   void _endRun() {
     if (!mounted) return;
     setState(() => _aiBusy = false);
+    _maybeTitle();
     if (_rerun) {
       _rerun = false;
       _runAi();
@@ -488,26 +551,32 @@ class _ClaudeChatScreenState extends State<ClaudeChatScreen> {
   }
 
   Future<void> _runTool(MuseToolCall call, int depth, int id) async {
-    final String toolId = call.name == 'browse' ? 'tools_browsing' : call.name;
+    final String n = call.name;
+    final bool exa = n == 'web_search_exa' || n == 'web_fetch_exa';
+    final bool known = exa ||
+        n == 'create_image' ||
+        n == 'create_video' ||
+        n == 'tools_use';
     bool continueAi = true;
-    if (!ModelStore.toolEnabled(toolId)) {
-      _noteTool(toolId, null,
-          'Tool $toolId dinonaktifkan pengguna (atur di Ruang Kreasi).');
+    if (!known) {
+      _noteTool(n, null, 'Tool tidak dikenal atau belum tersedia.');
+    } else if (exa ? !MuseAi.exaOn() : !ModelStore.toolEnabled(n)) {
+      _noteTool(n, null, 'Tool $n dinonaktifkan pengguna.');
     } else {
-      switch (call.name) {
+      switch (n) {
         case 'create_image':
           continueAi = false;
           await _toolCreateImage(call.arg);
           break;
-        case 'browse':
-          await _toolBrowse(call.arg);
+        case 'create_video':
+          continueAi = false;
+          await _toolCreateVideo(call.arg);
           break;
         case 'tools_use':
           _noteTool('tools_use', null, MuseAi.toolsOverview());
           break;
         default:
-          _noteTool(call.name, null,
-              'Tool tidak dikenal atau belum tersedia.');
+          await _toolExa(n, call.arg);
       }
     }
     if (!mounted || id != _runId) return;
@@ -542,16 +611,40 @@ class _ClaudeChatScreenState extends State<ClaudeChatScreen> {
     }
   }
 
-  Future<void> _toolBrowse(String url) async {
-    _toolCall('tools_browsing', url);
+  Future<void> _toolCreateVideo(String prompt) async {
+    final String p = prompt.isEmpty ? 'a calm cinematic landscape' : prompt;
+    _genStart(true);
+    _genPrompt(p);
+    _genSetPhase(GenPhase.generating.index);
+    try {
+      final String res = await MuseAi.generateVideo(p);
+      if (!mounted) return;
+      _genUpdate((m) => m.copyWith(
+          text: 'Video berhasil dibuat dan sudah ditampilkan ke '
+              'pengguna. Prompt: $p'));
+      _genSetResult(res);
+    } catch (e) {
+      if (!mounted) return;
+      final int gi = _lastGenIndex();
+      if (gi >= 0) _delete(gi);
+      _insertMessage(ChatMsg(
+        isUser: false,
+        type: MessageType.text,
+        text: '⚠️ Gagal membuat video: ${MuseAi.friendlyError(e)}',
+      ));
+    }
+  }
+
+  Future<void> _toolExa(String name, String arg) async {
+    _toolCall(name, arg);
     String result;
     try {
-      result = await MuseAi.browse(url);
+      result = await MuseAi.exaCall(name, arg);
     } catch (e) {
-      result = 'Gagal membuka halaman: ${MuseAi.friendlyError(e)}';
+      result = 'Gagal memanggil $name: ${MuseAi.friendlyError(e)}';
     }
     if (!mounted) return;
-    _finishToolWithResult('tools_browsing', result);
+    _finishToolWithResult(name, result);
   }
 
   // -- Build --------------------------------------------------------------
@@ -560,8 +653,7 @@ class _ClaudeChatScreenState extends State<ClaudeChatScreen> {
   Widget build(BuildContext context) {
     applySystemUi(context);
     final double bottomSafe = MediaQuery.of(context).padding.bottom;
-    // View.of: Scaffold induk menghapus viewInsets dari MediaQuery body.
-    final bool kbOpen = View.of(context).viewInsets.bottom > 0;
+    final bool kbOpen = widget.keyboardOpen;
     final Widget content = DefaultTextStyle(
       style: const TextStyle(fontFamily: AppDims.fontFamily),
       child: Stack(
@@ -592,28 +684,42 @@ class _ClaudeChatScreenState extends State<ClaudeChatScreen> {
                     onDeleteMessages: _clearAll,
                   ),
                   const SizedBox(height: 12),
-                  Expanded(child: _buildList()),
-                  if (_aiBusy &&
-                      (!_streaming ||
-                          MuseAi.stripToolMarkers(_streamBuf).isEmpty))
-                    const Padding(
-                      padding: EdgeInsets.only(bottom: 12),
-                      child: TypingBubble(),
+                  Expanded(
+                    child: Stack(
+                      children: [
+                        // List memanjang sampai dasar area: teks terlihat
+                        // di sela/bawah input bar (input tetap solid).
+                        Positioned.fill(child: _buildList()),
+                        if (!widget.hideInputBar)
+                          Positioned(
+                            left: 0,
+                            right: 0,
+                            bottom: widget.keyboardOpen
+                                ? 8
+                                : AppDims.inputGapToNav,
+                            child: NotificationListener<
+                                SizeChangedLayoutNotification>(
+                              onNotification: (_) {
+                                _measureInput();
+                                return false;
+                              },
+                              child: SizeChangedLayoutNotifier(
+                                child: KeyedSubtree(
+                                  key: _inputKey,
+                                  child: ChatInputBar(
+                                    controller: _controller,
+                                    onSubmitted: _send,
+                                    plusIcon: const PlusIcon32(),
+                                    micIcon:
+                                        const VoiceVectorIcon(size: 22),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                      ],
                     ),
-                  if (_streaming &&
-                      MuseAi.stripToolMarkers(_streamBuf).isNotEmpty)
-                    _streamingBubble(),
-                  if (!widget.hideInputBar)
-                    ChatInputBar(
-                      controller: _controller,
-                      onSubmitted: _send,
-                      plusIcon: const PlusIcon32(),
-                      micIcon: const VoiceVectorIcon(size: 22),
-                    ),
-                  if (!widget.hideInputBar && !widget.embedded)
-                    const SizedBox(height: AppDims.inputGapToNav),
-                  if (widget.embedded && kbOpen)
-                    const SizedBox(height: 12),
+                  ),
                   // Navbar disembunyikan saat keyboard terbuka agar
                   // tidak overflow / tertutup keyboard.
                   if (!widget.embedded && !kbOpen)
@@ -644,35 +750,66 @@ class _ClaudeChatScreenState extends State<ClaudeChatScreen> {
     );
   }
 
+  /// Typing / streaming berada DI DALAM list (paling bawah isi chat),
+  /// jadi alurnya selalu dari atas ke bawah.
+  Widget _tail() {
+    final String shown = MuseAi.stripToolMarkers(_streamBuf);
+    if (_streaming && shown.isNotEmpty) return _streamingBubble();
+    final bool cardBusy = _messages.isNotEmpty &&
+        ((_messages.last.type == MessageType.tool &&
+                _messages.last.toolStatus == ToolStatus.running) ||
+            (_messages.last.type == MessageType.gen &&
+                _messages.last.genPhase < GenPhase.done.index));
+    if (_aiBusy && !cardBusy) {
+      return const Padding(
+        padding: EdgeInsets.only(bottom: 12),
+        child: TypingBubble(),
+      );
+    }
+    return const SizedBox.shrink();
+  }
+
   Widget _buildList() {
-    // AnimatedList selalu mounted (tidak di-swap) agar GlobalKey,
+    // SliverAnimatedList selalu mounted (tidak di-swap) agar GlobalKey,
     // ScrollController, dan animasi remove tetap valid; empty state
     // hanya overlay di atasnya.
     final bool empty =
-        _messages.isEmpty && !_streaming && !_typing;
+        _messages.isEmpty && !_streaming && !_typing && !_aiBusy;
+    final double bottomPad = (widget.hideInputBar
+            ? 0.0
+            : _inputH +
+                (widget.keyboardOpen ? 8.0 : AppDims.inputGapToNav)) +
+        12.0;
     return Stack(
       children: [
-        AnimatedList(
-          key: _listKey,
+        CustomScrollView(
           controller: _scrollController,
-          padding: const EdgeInsets.only(bottom: 12),
-          initialItemCount: _messages.length,
-          itemBuilder: (context, i, animation) {
-            if (i >= _messages.length) {
-              return const SizedBox.shrink();
-            }
-            return _transition(
-              animation,
-              child: _spaced(i, _bubbleFor(_messages[i], i)),
-            );
-          },
+          slivers: [
+            SliverAnimatedList(
+              key: _listKey,
+              initialItemCount: _messages.length,
+              itemBuilder: (context, i, animation) {
+                if (i >= _messages.length) {
+                  return const SizedBox.shrink();
+                }
+                return _transition(
+                  animation,
+                  child: _spaced(i, _bubbleFor(_messages[i], i)),
+                );
+              },
+            ),
+            SliverToBoxAdapter(child: _tail()),
+            SliverToBoxAdapter(child: SizedBox(height: bottomPad)),
+          ],
         ),
         if (empty)
           Center(
-            child: Text(
-              'Mulai percakapan baru',
-              style:
-                  TextStyle(fontSize: 15, color: c.textMuted),
+            child: Padding(
+              padding: EdgeInsets.only(bottom: bottomPad),
+              child: Text(
+                'Mulai percakapan baru',
+                style: TextStyle(fontSize: 15, color: c.textMuted),
+              ),
             ),
           ),
       ],

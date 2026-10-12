@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:chat_bot/base/api.dart';
 import 'package:chat_bot/base/api_impl/chatgpt_impl.dart';
 import 'package:chat_bot/base/db/chat_item.dart' hide MessageType;
+import 'package:chat_bot/const.dart';
 import 'package:chat_bot/hive_bean/generate_content.dart';
 import 'package:chat_bot/hive_bean/local_chat_history.dart';
 import 'package:chat_bot/hive_bean/openai_bean.dart';
@@ -13,6 +14,7 @@ import 'package:dio/dio.dart';
 import 'package:path_provider/path_provider.dart';
 
 import 'chat_data.dart';
+import 'mcp_client.dart';
 import 'model_store.dart';
 
 /// Server + model yang dipakai untuk satu percakapan.
@@ -78,6 +80,13 @@ class MuseAi {
 
   static String _state(String id) => _on(id) ? 'AKTIF' : 'NONAKTIF';
 
+  /// MCP Exa aktif bila tool mcp_exa DAN server MCP Exa sama-sama aktif.
+  static bool exaOn() =>
+      ModelStore.toolEnabled('mcp_exa') &&
+      ModelStore.mcpEnabled('exa', defValue: true);
+
+  static String _exaState() => exaOn() ? 'AKTIF' : 'NONAKTIF';
+
   /// Instruksi sistem: memberi tahu AI fitur aplikasi dan tools yang ada.
   static String systemPrompt() {
     final StringBuffer b = StringBuffer();
@@ -100,33 +109,40 @@ class MuseAi {
         'obrolan baru; tombol titik tiga = hapus pesan.');
     b.writeln('- Navbar bawah: Chat, Library/Prompt, Ruang Kreasi (ikon '
         'bohlam), Server, Pengaturan.');
-    b.writeln('- Ruang Kreasi: memilih Model Chat/Gambar/Video default '
-        '(dikelompokkan per provider) dan mengatur tools, layanan search, '
-        'serta MCP.');
+    b.writeln('- Ruang Kreasi (tab bohlam): memilih Model Chat/Gambar/Video '
+        'default (model hasil fetch dipilah otomatis) dan mengatur tools.');
     b.writeln('- Server: menambah provider (OpenAI-compatible, Gemini, '
-        'Ollama, DeepSeek, dll). Fitur Custom Endpoint di Kelola Model: '
-        'nama provider, Base URL (tanpa /v1), dan API Key sendiri.');
+        'Ollama, DeepSeek, dll). Di bawahnya ada kartu MCP (Exa), '
+        'Browsing (layanan pencarian), dan Custom Endpoint (nama '
+        'provider, Base URL tanpa /v1, API Key sendiri).');
     b.writeln();
     b.writeln('TOOLS. Untuk memakai tool, tulis PERSIS satu baris penanda '
         'di akhir jawabanmu (bukan di dalam blok kode). Aplikasi akan '
         'menjalankannya; hasilnya dikirim kembali kepadamu sebagai pesan '
         'berawalan [HASIL TOOL].');
-    b.writeln('- create_image [${_state('create_image')}]: membuat gambar. '
-        'Format: [[tool:create_image|prompt gambar terperinci, bahasa '
-        'Inggris]]');
-    b.writeln('- tools_browsing [${_state('tools_browsing')}]: membaca teks '
-        'sebuah halaman web. Format: [[tool:browse|https://alamat.lengkap]]');
+    b.writeln('- create_image [${_state('create_image')}]: membuat gambar '
+        'memakai Model Gambar Default. Format: '
+        '[[tool:create_image|prompt gambar terperinci, bahasa Inggris]]');
+    b.writeln('- create_video [${_state('create_video')}]: membuat video '
+        'memakai Model Video Default (butuh server yang mendukung API '
+        'video; bila gagal, jelaskan penyebabnya ke pengguna). Format: '
+        '[[tool:create_video|prompt video terperinci, bahasa Inggris]]');
+    b.writeln('- web_search_exa [${_exaState()}] (MCP Exa): mencari '
+        'informasi terbaru di web. Format: '
+        '[[tool:web_search_exa|kata kunci pencarian]]');
+    b.writeln('- web_fetch_exa [${_exaState()}] (MCP Exa): membaca isi '
+        'halaman web dari URL. Format: '
+        '[[tool:web_fetch_exa|https://alamat.lengkap]]');
     b.writeln('- tools_use [${_state('tools_use')}]: melihat daftar tool '
-        'yang tersedia. Format: [[tool:tools_use]]');
-    b.writeln('- create_video [${_state('create_video')}]: BELUM ada '
-        'backend-nya, jangan menjanjikan atau mencoba membuat video.');
+        'yang tersedia beserta statusnya. Format: [[tool:tools_use]]');
     b.writeln();
     b.writeln('ATURAN TOOL: pakai tool hanya bila diminta atau memang '
-        'perlu; maksimal satu tool per giliran; jangan mengarang hasil '
-        'tool; kalau tool NONAKTIF, beri tahu pengguna agar '
-        'mengaktifkannya di Ruang Kreasi. Setelah menerima [HASIL TOOL], '
-        'jawab pengguna memakai hasil itu tanpa memanggil tool yang sama '
-        'lagi.');
+        'perlu (misal info terbaru, berita, atau isi sebuah URL); '
+        'maksimal satu tool per giliran; jangan mengarang hasil tool; '
+        'kalau tool NONAKTIF, beri tahu pengguna agar mengaktifkannya '
+        '(tool di Ruang Kreasi, MCP di tab Server). Setelah menerima '
+        '[HASIL TOOL], jawab pengguna memakai hasil itu dan sebutkan '
+        'sumbernya bila ada, tanpa memanggil tool yang sama berulang.');
     return b.toString();
   }
 
@@ -298,13 +314,99 @@ class MuseAi {
     return out.trimRight();
   }
 
-  /// Hasil tool_use: daftar tool + statusnya.
+  /// Hasil tools_use: daftar tool + statusnya.
   static String toolsOverview() {
     final StringBuffer b = StringBuffer();
-    for (final AiTool t in kAiTools) {
-      b.writeln('- ${t.id} [${_state(t.id)}]: ${t.desc}');
-    }
+    b.writeln('- create_image [${_state('create_image')}]: membuat gambar');
+    b.writeln('- create_video [${_state('create_video')}]: membuat video');
+    b.writeln('- web_search_exa [${_exaState()}]: cari di web (MCP Exa)');
+    b.writeln('- web_fetch_exa [${_exaState()}]: baca isi URL (MCP Exa)');
+    b.writeln('- tools_use [${_state('tools_use')}]: daftar tool ini');
     return b.toString().trim();
+  }
+
+  // -- MCP Exa -----------------------------------------------------------------
+
+  static final McpClient _exa = McpClient('https://mcp.exa.ai/mcp');
+
+  /// Jalankan tool Exa: web_search_exa (query) / web_fetch_exa (url).
+  static Future<String> exaCall(String tool, String arg) async {
+    if (arg.trim().isEmpty) throw const MuseAiException('Argumen tool kosong.');
+    if (tool == 'web_search_exa') {
+      return _exa.callTool(
+          tool, <String, dynamic>{'query': arg.trim(), 'numResults': 5});
+    }
+    try {
+      return await _exa.callTool(tool, <String, dynamic>{
+        'urls': <String>[arg.trim()],
+      });
+    } catch (_) {
+      return _exa.callTool(tool, <String, dynamic>{'url': arg.trim()});
+    }
+  }
+
+  // -- Klasifikasi model hasil fetch -----------------------------------------------
+
+  /// 0 = chat, 1 = gambar, 2 = video, 3 = lain (embedding/suara/dll).
+  static int kindOf(String id) {
+    final String s = id.toLowerCase();
+    if (RegExp(r'(video|sora|kling|seedance|hailuo|runway|cogvideo|i2v|t2v|'
+                r'(^|[/\-_.])(wan|veo|vidu|ltx|luma|pika)[\d\-_.]?)')
+            .hasMatch(s) &&
+        !s.contains('wanx2.1-t2i')) {
+      return 2;
+    }
+    if (RegExp(r'(image|dall-e|dalle|imagen|flux|sdxl|stable-diffusion|'
+                r'midjourney|cogview|seedream|recraft|ideogram|t2i|wanx)')
+            .hasMatch(s) ||
+        paintModelKeys.contains(id)) {
+      return 1;
+    }
+    if (RegExp(r'(embed|tts|whisper|moderation|rerank|speech|asr|'
+                r'transcrib|realtime|audio)')
+            .hasMatch(s)) {
+      return 3;
+    }
+    return 0;
+  }
+
+  // -- Judul otomatis ------------------------------------------------------------------
+
+  /// Judul singkat dari pertukaran pertama; null bila gagal.
+  static Future<String?> generateTitle(List<ChatMsg> msgs) async {
+    final MuseTarget? t = resolve();
+    if (t == null) return null;
+    String? user;
+    String? ai;
+    for (final ChatMsg m in msgs) {
+      if (m.type != MessageType.text || m.text.trim().isEmpty) continue;
+      if (m.isUser) {
+        user ??= m.text;
+      } else {
+        ai ??= m.text;
+      }
+    }
+    if (user == null || ai == null) return null;
+    String clip(String x) => x.length > 600 ? x.substring(0, 600) : x;
+    final List<ChatItem> items = <ChatItem>[
+      _item(1, true, clip(user)),
+      _item(2, false, clip(ai)),
+    ];
+    try {
+      final String raw = await API()
+          .generateChatTitle(HiveBox().temperature, t.bean, t.model, items,
+              <RequestParams>[])
+          .timeout(const Duration(seconds: 25));
+      String title = raw
+          .replaceAll(RegExp(r'["`*#]'), '')
+          .replaceAll('\n', ' ')
+          .trim();
+      if (title.isEmpty) return null;
+      if (title.length > 40) title = '${title.substring(0, 40)}...';
+      return title;
+    } catch (_) {
+      return null;
+    }
   }
 
   // -- Tool: gambar ---------------------------------------------------------------
@@ -366,51 +468,107 @@ class MuseAi {
     return out.path;
   }
 
-  // -- Tool: browsing --------------------------------------------------------------
+  // -- Tool: video ------------------------------------------------------------------
 
-  /// Mengambil teks sebuah halaman web (maks ±8000 karakter).
-  static Future<String> browse(String url) async {
-    String u = url.trim();
-    if (u.isEmpty) throw const MuseAiException('URL kosong.');
-    if (!u.startsWith('http://') && !u.startsWith('https://')) {
-      u = 'https://$u';
+  static String? _pickId(dynamic m) {
+    if (m is Map) {
+      for (final String k in <String>['id', 'task_id', 'video_id']) {
+        if (m[k] is String && (m[k] as String).isNotEmpty) {
+          return m[k] as String;
+        }
+      }
+      if (m['data'] is Map) return _pickId(m['data']);
+      if (m['data'] is List && (m['data'] as List).isNotEmpty) {
+        return _pickId((m['data'] as List).first);
+      }
     }
-    final Dio dio = Dio(BaseOptions(
-      connectTimeout: const Duration(seconds: 15),
-      receiveTimeout: const Duration(seconds: 20),
-      responseType: ResponseType.plain,
-      followRedirects: true,
-      maxRedirects: 5,
-      headers: <String, dynamic>{
-        'User-Agent': 'Mozilla/5.0 (Linux; Android 13) XDots/1.0',
-        'Accept': 'text/html,application/xhtml+xml,text/plain,*/*',
-      },
-    ));
-    final Response<String> res = await dio.get<String>(u);
-    String html = res.data ?? '';
-    html = html.replaceAll(
-        RegExp(r'<(script|style|noscript)[\s\S]*?</\1>',
-            caseSensitive: false),
-        ' ');
-    html = html.replaceAll(
-        RegExp(r'<br\s*/?>|</p>|</div>|</li>|</h[1-6]>|</tr>',
-            caseSensitive: false),
-        '\n');
-    html = html.replaceAll(RegExp(r'<[^>]+>'), ' ');
-    html = html
-        .replaceAll('&nbsp;', ' ')
-        .replaceAll('&amp;', '&')
-        .replaceAll('&lt;', '<')
-        .replaceAll('&gt;', '>')
-        .replaceAll('&quot;', '"')
-        .replaceAll('&#39;', "'");
-    html = html
-        .replaceAll(RegExp(r'[ \t]+'), ' ')
-        .replaceAll(RegExp(r'\n\s*\n+'), '\n\n')
-        .trim();
-    if (html.length > 8000) html = html.substring(0, 8000);
-    if (html.isEmpty) return '(Halaman kosong atau tidak berisi teks.)';
-    return html;
+    return null;
+  }
+
+  static String? _pickVideoUrl(dynamic m, [int depth = 0]) {
+    if (depth > 3) return null;
+    if (m is Map) {
+      for (final String k in <String>[
+        'video_url', 'download_url', 'output_url', 'result_url', 'url'
+      ]) {
+        final dynamic v = m[k];
+        if (v is String && v.startsWith('http')) return v;
+      }
+      for (final dynamic v in m.values) {
+        final String? r = _pickVideoUrl(v, depth + 1);
+        if (r != null) return r;
+      }
+    } else if (m is List) {
+      for (final dynamic v in m) {
+        final String? r = _pickVideoUrl(v, depth + 1);
+        if (r != null) return r;
+      }
+    }
+    return null;
+  }
+
+  /// Membuat video (best-effort, API video gaya OpenAI /v1/videos lalu
+  /// /v1/video/generations). Mengembalikan URL atau path file lokal.
+  static Future<String> generateVideo(String prompt) async {
+    final MuseTarget? t = resolve();
+    if (t == null) {
+      throw const MuseAiException('Belum ada server untuk membuat video.');
+    }
+    final String model = ModelStore.defaultVideo();
+    if (model.isEmpty) {
+      throw const MuseAiException(
+          'Model Video Default belum dipilih (tab Ruang Kreasi).');
+    }
+    final String base = normalizeBase(t.bean.apiServer ?? '');
+    final Dio dio = _dio(t.bean, receive: const Duration(seconds: 60));
+    String root = '/v1/videos';
+    dynamic created;
+    try {
+      created = (await dio.post<dynamic>('$base$root',
+              data: <String, dynamic>{'model': model, 'prompt': prompt}))
+          .data;
+    } on DioException catch (e) {
+      final int? code = e.response?.statusCode;
+      if (code == 404 || code == 405) {
+        root = '/v1/video/generations';
+        created = (await dio.post<dynamic>('$base$root',
+                data: <String, dynamic>{'model': model, 'prompt': prompt}))
+            .data;
+      } else {
+        rethrow;
+      }
+    }
+    String? url = _pickVideoUrl(created);
+    final String? id = _pickId(created);
+    if (url == null && id == null) {
+      throw const MuseAiException('Respons video tidak dikenali server.');
+    }
+    for (int i = 0; url == null && i < 60; i++) {
+      await Future<void>.delayed(const Duration(seconds: 5));
+      final dynamic r = (await dio.get<dynamic>('$base$root/$id')).data;
+      url = _pickVideoUrl(r);
+      if (url != null) break;
+      final String st = (r is Map
+              ? (r['status'] ?? r['state'] ?? r['task_status'] ?? '')
+              : '')
+          .toString()
+          .toLowerCase();
+      if (<String>['failed', 'error', 'cancelled', 'canceled'].contains(st)) {
+        throw MuseAiException('Pembuatan video gagal ($st).');
+      }
+      if (<String>['completed', 'succeeded', 'success', 'done']
+          .contains(st)) {
+        final Directory dir = await getTemporaryDirectory();
+        final String out =
+            '${dir.path}/muse_${DateTime.now().millisecondsSinceEpoch}.mp4';
+        await dio.download('$base$root/$id/content', out);
+        return out;
+      }
+    }
+    if (url == null) {
+      throw const MuseAiException('Pembuatan video terlalu lama (timeout).');
+    }
+    return url;
   }
 
   // -- Custom endpoint ---------------------------------------------------------------

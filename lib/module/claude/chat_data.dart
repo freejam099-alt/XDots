@@ -175,10 +175,10 @@ const List<AiTool> kAiTools = [
   AiTool('create_image', 'create_image', 'Generate gambar dari teks'),
   AiTool('create_video', 'create_video', 'Generate video dari teks'),
   AiTool('tools_use', 'tools_use', 'Membuka tools yang tersedia'),
-  AiTool('tools_browsing', 'tools_browsing', 'Browsing + scrape web'),
+  AiTool('mcp_exa', 'mcp_exa', 'MCP Exa: web_search_exa + web_fetch_exa'),
 ];
 
-/// Layanan search di bawah tools_browsing.
+/// Layanan pencarian (kartu Browsing di tab Server).
 class SearchService {
   final String id;
   final String label;
@@ -190,18 +190,21 @@ const List<SearchService> kSearchServices = [
   SearchService('tavily', 'Tavily'),
   SearchService('doubao', 'Duobao'),
   SearchService('firecrawl', 'Firecrawl'),
-  SearchService('dot_browsing', 'dot browsing'),
 ];
 
 /// Katalog server MCP bawaan.
 class McpServer {
   final String id;
   final String label;
-  const McpServer(this.id, this.label);
+  final String? url;
+  final String? tools;
+  const McpServer(this.id, this.label, {this.url, this.tools});
 }
 
 const List<McpServer> kMcpCatalog = [
-  McpServer('dot_browsing', 'dot browsing'),
+  McpServer('exa', 'Exa',
+      url: 'https://mcp.exa.ai/mcp',
+      tools: 'web_search_exa, web_fetch_exa'),
   McpServer('fetch', 'fetch'),
   McpServer('filesystem', 'filesystem'),
 ];

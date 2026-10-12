@@ -1,6 +1,7 @@
 import 'package:chat_bot/base.dart';
 import 'package:chat_bot/hive_bean/local_chat_history.dart';
 
+import '../claude/server_extras.dart';
 import '../setting/openai/openai_list_page.dart';
 import '../setting/openai/openai_viewmodel.dart';
 import '../setting/setting_page.dart';
@@ -201,6 +202,7 @@ class _ServicesPageState extends ConsumerState<ServicesPage> {
                   }),
                 );
               }),
+              const ServerExtras(),
               const SizedBox(
                 height: 25,
               ),

@@ -430,6 +430,7 @@ class _ChatInputBarState extends State<ChatInputBar> {
     // jadi TIDAK ada padding viewInsets di sini (sebelumnya dihitung
     // dua kali sehingga bar melompat/kenyal).
     return Center(
+      heightFactor: 1,
       child: AnimatedContainer(
         duration: AppDims.animMed,
         curve: Curves.easeOutCubic,

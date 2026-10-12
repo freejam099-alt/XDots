@@ -21,37 +21,10 @@ class HomePage extends ConsumerStatefulWidget {
 
 class _HomePageState extends ConsumerState<HomePage>
     with WidgetsBindingObserver {
-  /// Provider 0..3 -> pill 0,1,3,4 (2 = Ruang Kreasi).
-  int _toPillIndex(int providerIndex) {
-    switch (providerIndex) {
-      case 0:
-        return 0;
-      case 1:
-        return 1;
-      case 2:
-        return 3;
-      default:
-        return 4;
-    }
-  }
-
-  void _onPillTap(int pillIndex) {
-    if (pillIndex == 2) {
-      // Tengah = Ruang Kreasi: ganti model + atur tools.
-      openRuangKreasi(context);
-      return;
-    }
-    int providerIndex = 0;
-    if (pillIndex == 0) {
-      providerIndex = 0;
-    } else if (pillIndex == 1) {
-      providerIndex = 1;
-    } else if (pillIndex == 3) {
-      providerIndex = 2;
-    } else {
-      providerIndex = 3;
-    }
-    ref.read(homeIndexProvider.notifier).update((state) => providerIndex);
+  /// Indeks tab = indeks pill: 0 Chat, 1 Prompt, 2 Ruang Kreasi,
+  /// 3 Server, 4 Pengaturan.
+  void _onPillTap(int index) {
+    ref.read(homeIndexProvider.notifier).update((state) => index);
   }
 
   @override
@@ -88,8 +61,17 @@ class _HomePageState extends ConsumerState<HomePage>
 
   @override
   Widget build(BuildContext context) {
-    var currentIndex = ref.watch(homeIndexProvider);
-    final bool kbOpen = View.of(context).viewInsets.bottom > 0;
+    final int currentIndex = ref.watch(homeIndexProvider);
+    final AppColors c = AppColors.of(context);
+    // MediaQuery (bukan View.of) agar rebuild saat keyboard muncul.
+    final double kb = MediaQuery.viewInsetsOf(context).bottom;
+    final bool kbOpen = kb > 0;
+    final double safeBottom = MediaQuery.paddingOf(context).bottom;
+    final double navBottom = AppDims.pillBottomGap + safeBottom;
+    final double navArea = navBottom + AppDims.pillHeight;
+    // Konten berhenti di atas navbar; saat keyboard terbuka konten naik
+    // setinggi keyboard, tapi navbar TETAP di dasar (tertutup keyboard).
+    final double contentBottom = kb > navArea ? kb : navArea;
 
     // Navbar hanya icon, tanpa nama. Tengah = Ruang Kreasi (bohlam asli).
     const navIcons = [
@@ -100,50 +82,57 @@ class _HomePageState extends ConsumerState<HomePage>
       SettingVectorIcon(),
     ];
 
-    final AppColors c = AppColors.of(context);
-
-    // Layout deterministik: Column(Expanded(konten), navbar).
-    // Navbar SELALU menempel di bawah, input bar chat berada di dasar
-    // area konten tepat di atas navbar. Tanpa extendBody / Positioned.
     return Scaffold(
       backgroundColor: c.bgBase,
+      resizeToAvoidBottomInset: false,
       body: DecoratedBox(
         decoration: BoxDecoration(
           color: c.bgBase,
           gradient: currentIndex == 0 ? c.bgGradientBottom : null,
         ),
-        child: Column(
+        child: Stack(
           children: [
-            Expanded(
-              child: IndexedStack(
-                sizing: StackFit.expand,
-                index: currentIndex,
-                children: [
-                  ClaudeChatScreen(
-                    navIcons: navIcons,
-                    navIndex: _toPillIndex(currentIndex),
-                    onNavTap: _onPillTap,
-                    embedded: true,
+            Positioned(
+              left: 0,
+              right: 0,
+              top: 0,
+              bottom: contentBottom,
+              child: MediaQuery.removePadding(
+                context: context,
+                removeBottom: true,
+                child: MediaQuery.removeViewInsets(
+                  context: context,
+                  removeBottom: true,
+                  child: IndexedStack(
+                    sizing: StackFit.expand,
+                    index: currentIndex,
+                    children: [
+                      ClaudeChatScreen(
+                        navIcons: navIcons,
+                        navIndex: currentIndex,
+                        onNavTap: _onPillTap,
+                        embedded: true,
+                        keyboardOpen: kbOpen,
+                      ),
+                      const PromptPage(),
+                      RuangKreasiPage(active: currentIndex == 2),
+                      const ServicesPage(),
+                      const SettingPage(),
+                    ],
                   ),
-                  const PromptPage(),
-                  const ServicesPage(),
-                  const SettingPage(),
-                ],
+                ),
               ),
             ),
-            if (!kbOpen)
-              Padding(
-                padding: EdgeInsets.only(
-                  top: currentIndex == 0 ? AppDims.inputGapToNav : 0,
-                  bottom: AppDims.pillBottomGap +
-                      MediaQuery.paddingOf(context).bottom,
-                ),
-                child: FloatingPillNavbar(
-                  icons: navIcons,
-                  currentIndex: _toPillIndex(currentIndex),
-                  onTap: _onPillTap,
-                ),
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: navBottom,
+              child: FloatingPillNavbar(
+                icons: navIcons,
+                currentIndex: currentIndex,
+                onTap: _onPillTap,
               ),
+            ),
           ],
         ),
       ),

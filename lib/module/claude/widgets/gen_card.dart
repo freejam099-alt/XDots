@@ -1,6 +1,8 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:share_plus/share_plus.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../app_theme.dart';
 import '../chat_data.dart';
@@ -96,6 +98,7 @@ class GenCard extends StatelessWidget {
         if (result == null || result!.isEmpty) {
           return _GeneratingBox(ratio: ratio);
         }
+        if (isVideo) return _ResultVideo(path: result!, ratio: ratio);
         return _ResultImage(path: result!, ratio: ratio);
     }
   }
@@ -304,6 +307,51 @@ class _ResultImageState extends State<_ResultImage> {
                     );
                   },
                 ),
+        ),
+      ),
+    );
+  }
+}
+
+
+/// Hasil video: kartu kecil, ketuk untuk membuka (URL -> browser/pemutar,
+/// file lokal -> bagikan ke aplikasi pemutar).
+class _ResultVideo extends StatelessWidget {
+  final String path;
+  final String ratio;
+  const _ResultVideo({required this.path, required this.ratio});
+
+  Future<void> _open() async {
+    if (path.startsWith('http://') || path.startsWith('https://')) {
+      await launchUrl(Uri.parse(path), mode: LaunchMode.externalApplication);
+    } else {
+      await Share.shareXFiles([XFile(path)]);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final AppColors c = AppColors.of(context);
+    return AspectRatio(
+      aspectRatio: genAspect(ratio == 'auto' ? '16:9' : ratio),
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: _open,
+        child: Container(
+          decoration: BoxDecoration(
+            color: c.surfaceSoft,
+            borderRadius: BorderRadius.circular(14),
+          ),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.play_circle_fill_rounded,
+                  size: 52, color: c.accent),
+              const SizedBox(height: 8),
+              Text('Video siap, ketuk untuk membuka',
+                  style: TextStyle(fontSize: 12, color: c.textMuted)),
+            ],
+          ),
         ),
       ),
     );
