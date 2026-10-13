@@ -29,7 +29,7 @@ jobs:
           STATUS=$?
           tail -n 30 pub.txt
           if [ $STATUS -ne 0 ]; then
-            msg=$(head -c 1500 pub.txt | tr '\n' ' ')
+            msg=$(grep -v '║' pub.txt | grep -v '╔' | grep -v '╚' | head -c 1500 | tr '\n' ' ')
             echo "::error::PUB ${msg}"
           fi
           exit $STATUS
