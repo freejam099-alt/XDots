@@ -8,6 +8,7 @@ import 'package:flutter/material.dart';
 import 'ai_service.dart';
 import 'app_theme.dart';
 import 'chat_data.dart';
+import 'dot_browser.dart';
 import 'model_store.dart';
 import 'widgets/vector_icons.dart';
 
@@ -92,14 +93,64 @@ class _ServerExtrasState extends State<ServerExtras> {
           _divider(c),
           _card(
             c,
-            'Browsing',
-            'Layanan pencarian web (isi API key bila diperlukan).',
+            'Dot Browser',
+            'Web search tanpa API key (porting fitur Keyless LastChat). '
+                'AI memakainya lewat dot_search dan dot_read.',
             Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                for (final SearchService s in kSearchServices)
-                  _SearchToggleRow(
-                    service: s,
-                    onChanged: (_) => setState(() {}),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text('Aktifkan Dot Browser',
+                          style:
+                              TextStyle(fontSize: 15, color: c.textPrimary)),
+                    ),
+                    Switch.adaptive(
+                      value: ModelStore.toolEnabled('dot_browser'),
+                      activeColor: c.accent,
+                      onChanged: (bool v) => setState(
+                          () => ModelStore.setToolEnabled('dot_browser', v)),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 6),
+                Text('Fitur & sumber',
+                    style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: c.textMuted)),
+                const SizedBox(height: 6),
+                for (final DotBackendInfo i in kDotBackends)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 5),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Container(
+                          width: 6,
+                          height: 6,
+                          margin: const EdgeInsets.only(top: 7, right: 10),
+                          decoration: BoxDecoration(
+                              color: c.accent, shape: BoxShape.circle),
+                        ),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(i.name,
+                                  style: TextStyle(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w600,
+                                      color: c.textPrimary)),
+                              Text(i.role,
+                                  style: TextStyle(
+                                      fontSize: 12, color: c.textMuted)),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
               ],
             ),

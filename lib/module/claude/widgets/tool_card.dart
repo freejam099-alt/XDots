@@ -12,6 +12,7 @@ import 'vector_icons.dart';
 Widget toolIconFor(String toolId, {double size = 18}) {
   final String id = toolId.toLowerCase();
   if (id.startsWith('tools_browsing') ||
+      id.startsWith('dot_') ||
       id == 'browsing' ||
       id.contains('brave') ||
       id.contains('tavily') ||

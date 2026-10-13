@@ -178,8 +178,11 @@ class _ClaudeChatScreenState extends State<ClaudeChatScreen> {
     _flushTimer?.cancel();
     _flushTimer = null;
     if (!_streaming) return;
-    final String text = MuseAi.stripToolMarkers(_streamBuf).trim();
-    final List<String> src = List<String>.of(_pendingSources);
+    final LinkCollapse lc =
+        MuseAi.collapseLinks(MuseAi.stripToolMarkers(_streamBuf).trim());
+    final String text = lc.text;
+    final List<String> src =
+        MuseAi.uniqueByHost(<String>[..._pendingSources, ...lc.urls]);
     if (text.isNotEmpty) _pendingSources = <String>[];
     setState(() {
       _streamBuf = '';
@@ -584,14 +587,20 @@ class _ClaudeChatScreenState extends State<ClaudeChatScreen> {
   Future<void> _runTool(MuseToolCall call, int depth, int id) async {
     final String n = call.name;
     final bool exa = n == 'web_search_exa' || n == 'web_fetch_exa';
+    final bool dot = n == 'dot_search' || n == 'dot_read';
     final bool known = exa ||
+        dot ||
         n == 'create_image' ||
         n == 'create_video' ||
         n == 'tools_use';
     bool continueAi = true;
     if (!known) {
       _noteTool(n, null, 'Tool tidak dikenal atau belum tersedia.');
-    } else if (exa ? !MuseAi.exaOn() : !ModelStore.toolEnabled(n)) {
+    } else if (exa
+        ? !MuseAi.exaOn()
+        : dot
+            ? !MuseAi.dotOn()
+            : !ModelStore.toolEnabled(n)) {
       _noteTool(n, null, 'Tool $n dinonaktifkan pengguna.');
     } else {
       switch (n) {
@@ -605,6 +614,10 @@ class _ClaudeChatScreenState extends State<ClaudeChatScreen> {
           break;
         case 'tools_use':
           _noteTool('tools_use', null, MuseAi.toolsOverview());
+          break;
+        case 'dot_search':
+        case 'dot_read':
+          await _toolDot(n, call.arg);
           break;
         default:
           await _toolExa(n, call.arg);
@@ -662,6 +675,23 @@ class _ClaudeChatScreenState extends State<ClaudeChatScreen> {
             '${MuseAi.friendlyError(res.value ?? 'tidak diketahui')}',
       ));
     }
+  }
+
+  Future<void> _toolDot(String name, String arg) async {
+    _toolCall(name, arg);
+    String result;
+    try {
+      result = name == 'dot_read'
+          ? await MuseAi.dotRead(arg)
+          : await MuseAi.dotSearch(arg);
+      if (name == 'dot_search') {
+        _pendingSources = MuseAi.extractSources(result);
+      }
+    } catch (e) {
+      result = 'Gagal memanggil $name: ${MuseAi.friendlyError(e)}';
+    }
+    if (!mounted) return;
+    _finishToolWithResult(name, result);
   }
 
   Future<void> _toolExa(String name, String arg) async {

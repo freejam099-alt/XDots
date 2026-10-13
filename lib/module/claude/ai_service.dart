@@ -15,6 +15,7 @@ import 'package:dio/dio.dart';
 import 'package:path_provider/path_provider.dart';
 
 import 'chat_data.dart';
+import 'dot_browser.dart';
 import 'mcp_client.dart';
 import 'model_store.dart';
 
@@ -31,6 +32,12 @@ class MuseToolCall {
   final String arg;
   final String ratio;
   const MuseToolCall(this.name, this.arg, [this.ratio = '']);
+}
+
+class LinkCollapse {
+  final String text;
+  final List<String> urls;
+  const LinkCollapse(this.text, this.urls);
 }
 
 class MuseAiException implements Exception {
@@ -89,6 +96,10 @@ class MuseAi {
 
   static String _exaState() => exaOn() ? 'AKTIF' : 'NONAKTIF';
 
+  static bool dotOn() => ModelStore.toolEnabled('dot_browser');
+
+  static String _dotState() => dotOn() ? 'AKTIF' : 'NONAKTIF';
+
   /// Instruksi sistem: memberi tahu AI fitur aplikasi dan tools yang ada.
   static String systemPrompt() {
     final StringBuffer b = StringBuffer();
@@ -132,17 +143,27 @@ class MuseAi {
         'video; bila gagal, jelaskan penyebabnya ke pengguna). Format: '
         '[[tool:create_video|prompt video terperinci, bahasa Inggris|rasio]]'
         ' (rasio 16:9 atau 9:16).');
+    b.writeln('- dot_search [${_dotState()}] (Dot Browser, tanpa API key): '
+        'pencarian web, berita, cuaca, olahraga, ensiklopedia, dan gambar. '
+        'Utamakan tool ini. Format: [[tool:dot_search|kata kunci]] atau '
+        'dengan topik: [[tool:dot_search|kata kunci|weather]] '
+        '(topik: weather, news, sports, images, encyclopedia, general).');
+    b.writeln('- dot_read [${_dotState()}] (Dot Browser): membaca isi '
+        'halaman web sebagai markdown. Format: '
+        '[[tool:dot_read|https://alamat.lengkap]]');
     b.writeln('- web_search_exa [${_exaState()}] (MCP Exa): mencari '
         'informasi terbaru di web. Format: '
-        '[[tool:web_search_exa|kata kunci pencarian]] (sumbernya otomatis '
-        'tampil sebagai ikon di akhir jawabanmu, jadi tidak perlu daftar '
-        'URL panjang).');
+        '[[tool:web_search_exa|kata kunci pencarian]] (alternatif bila Dot '
+        'Browser tidak cukup).');
     b.writeln('- web_fetch_exa [${_exaState()}] (MCP Exa): membaca isi '
         'halaman web dari URL. Format: '
         '[[tool:web_fetch_exa|https://alamat.lengkap]]');
     b.writeln('- tools_use [${_state('tools_use')}]: melihat daftar tool '
         'yang tersedia beserta statusnya. Format: [[tool:tools_use]]');
     b.writeln();
+    b.writeln('SUMBER: JANGAN menulis URL, link markdown, atau baris "Sumber:" di '
+        'jawabanmu. Sumber otomatis tampil sebagai ikon provider kecil di '
+        'ujung jawaban.');
     b.writeln('ATURAN TOOL: pakai tool hanya bila diminta atau memang '
         'perlu (misal info terbaru, berita, atau isi sebuah URL); '
         'maksimal satu tool per giliran; jangan mengarang hasil tool; '
@@ -488,6 +509,8 @@ class MuseAi {
     final StringBuffer b = StringBuffer();
     b.writeln('- create_image [${_state('create_image')}]: membuat gambar');
     b.writeln('- create_video [${_state('create_video')}]: membuat video');
+    b.writeln('- dot_search [${_dotState()}]: cari di web (Dot Browser)');
+    b.writeln('- dot_read [${_dotState()}]: baca isi URL (Dot Browser)');
     b.writeln('- web_search_exa [${_exaState()}]: cari di web (MCP Exa)');
     b.writeln('- web_fetch_exa [${_exaState()}]: baca isi URL (MCP Exa)');
     b.writeln('- tools_use [${_state('tools_use')}]: daftar tool ini');
@@ -512,6 +535,90 @@ class MuseAi {
     } catch (_) {
       return _exa.callTool(tool, <String, dynamic>{'url': arg.trim()});
     }
+  }
+
+  /// Dot Browser: arg "kata kunci" atau "kata kunci|topik".
+  static Future<String> dotSearch(String arg) async {
+    String q = arg.trim();
+    String? topic;
+    final int bar = q.lastIndexOf('|');
+    if (bar >= 0) {
+      final String t = q.substring(bar + 1).trim().toLowerCase();
+      const Set<String> topics = <String>{
+        'weather', 'news', 'sports', 'images', 'encyclopedia', 'general'
+      };
+      if (topics.contains(t)) {
+        topic = t;
+        q = q.substring(0, bar).trim();
+      }
+    }
+    try {
+      return await DotBrowser.search(q, topic: topic);
+    } on DotBrowserException catch (e) {
+      throw MuseAiException(e.message);
+    }
+  }
+
+  static Future<String> dotRead(String url) async {
+    try {
+      return await DotBrowser.read(url);
+    } on DotBrowserException catch (e) {
+      throw MuseAiException(e.message);
+    }
+  }
+
+  /// Semua link di jawaban AI dipindah ke daftar sumber (ikon kecil
+  /// bertumpuk) supaya teks tidak dipenuhi kartu/link besar.
+  static LinkCollapse collapseLinks(String input) {
+    final List<String> urls = <String>[];
+    final RegExp urlRe = RegExp('https?://[^\\s)\\]>"\']+');
+    final List<String> parts = input.split('```');
+    for (int i = 0; i < parts.length; i += 2) {
+      String s = parts[i];
+      s = s.split('\n').where((String line) {
+        if (RegExp(
+                r'^\s*(?:[-*]\s*)?\**(sumber|sources?|referensi|references?)\**\s*:',
+                caseSensitive: false)
+            .hasMatch(line)) {
+          for (final RegExpMatch m in urlRe.allMatches(line)) {
+            urls.add(m.group(0)!);
+          }
+          return false;
+        }
+        return true;
+      }).join('\n');
+      s = s.replaceAllMapped(
+          RegExp(r'(?<!!)\[([^\]]*)\]\((https?://[^)\s]+)\)'), (Match m) {
+        urls.add(m.group(2)!);
+        return m.group(1)!;
+      });
+      s = s.replaceAllMapped(
+          RegExp('(?<!\\()https?://[^\\s)\\]>"\']+'), (Match m) {
+        urls.add(m.group(0)!);
+        return '';
+      });
+      parts[i] = s;
+    }
+    String text = parts.join('```');
+    text = text
+        .replaceAll(RegExp(r'^[ \t]*[-*][ \t]*$', multiLine: true), '')
+        .replaceAll(RegExp(r'\n{3,}'), '\n\n')
+        .replaceAll(RegExp(r'\(\s*\)'), '')
+        .replaceAll(RegExp(r'[ \t]+,'), ',')
+        .trim();
+    return LinkCollapse(text, uniqueByHost(urls));
+  }
+
+  static List<String> uniqueByHost(List<String> urls, {int max = 8}) {
+    final Set<String> hosts = <String>{};
+    final List<String> out = <String>[];
+    for (final String u in urls) {
+      final String h = Uri.tryParse(u)?.host ?? '';
+      if (h.isEmpty || !hosts.add(h)) continue;
+      out.add(u);
+      if (out.length >= max) break;
+    }
+    return out;
   }
 
   // -- Klasifikasi model hasil fetch -----------------------------------------------
@@ -674,7 +781,13 @@ class MuseAi {
         in RegExp('https?://[^\\s)\\]>"\']+').allMatches(text)) {
       final String u = m.group(0)!;
       final String h = Uri.tryParse(u)?.host ?? '';
-      if (h.isEmpty || h.endsWith('exa.ai') || !hosts.add(h)) continue;
+      if (h.isEmpty ||
+          h.endsWith('exa.ai') ||
+          RegExp(r'\.(?:jpe?g|png|gif|webp|svg)(?:$|\?)', caseSensitive: false)
+              .hasMatch(u) ||
+          !hosts.add(h)) {
+        continue;
+      }
       out.add(u);
       if (out.length >= 6) break;
     }

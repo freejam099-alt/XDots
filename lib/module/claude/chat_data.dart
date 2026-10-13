@@ -184,6 +184,8 @@ const List<AiTool> kAiTools = [
   AiTool('create_image', 'create_image', 'Generate gambar dari teks'),
   AiTool('create_video', 'create_video', 'Generate video dari teks'),
   AiTool('tools_use', 'tools_use', 'Membuka tools yang tersedia'),
+  AiTool('dot_browser', 'dot_browser',
+      'Dot Browser: web search tanpa API key (dot_search + dot_read)'),
   AiTool('mcp_exa', 'mcp_exa', 'MCP Exa: web_search_exa + web_fetch_exa'),
 ];
 
