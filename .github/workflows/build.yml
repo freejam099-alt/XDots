@@ -23,7 +23,16 @@ jobs:
           cache: true
 
       - name: Pub get
-        run: flutter pub get
+        run: |
+          set +e
+          flutter pub get > pub.txt 2>&1
+          STATUS=$?
+          tail -n 30 pub.txt
+          if [ $STATUS -ne 0 ]; then
+            msg=$(head -c 1500 pub.txt | tr '\n' ' ')
+            echo "::error::PUB ${msg}"
+          fi
+          exit $STATUS
 
       - name: Analyze
         run: |
