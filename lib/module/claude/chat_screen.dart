@@ -6,12 +6,14 @@ import 'package:flutter/material.dart';
 import 'package:chat_bot/utils/hive_box.dart';
 
 import 'ai_service.dart';
+import 'dot_browser.dart';
 import 'history_sheet.dart';
 import 'model_store.dart';
 
 import 'app_theme.dart';
 import 'chat_data.dart';
 import 'widgets/bubble.dart';
+import 'widgets/image_carousel.dart';
 import 'widgets/sources_row.dart';
 import 'widgets/cards.dart';
 import 'widgets/chat_input_bar.dart';
@@ -112,6 +114,7 @@ class _ClaudeChatScreenState extends State<ClaudeChatScreen> {
   Timer? _flushTimer;
   bool _hasShown = false;
   List<String> _pendingSources = <String>[];
+  List<String> _pendingGallery = <String>[];
   double _inputH = 64;
   final GlobalKey _inputKey = GlobalKey();
   int _epoch = 0;
@@ -183,7 +186,11 @@ class _ClaudeChatScreenState extends State<ClaudeChatScreen> {
     final String text = lc.text;
     final List<String> src =
         MuseAi.uniqueByHost(<String>[..._pendingSources, ...lc.urls]);
-    if (text.isNotEmpty) _pendingSources = <String>[];
+    final List<String> gal = List<String>.of(_pendingGallery);
+    if (text.isNotEmpty) {
+      _pendingSources = <String>[];
+      _pendingGallery = <String>[];
+    }
     setState(() {
       _streamBuf = '';
       _streaming = false;
@@ -196,7 +203,8 @@ class _ClaudeChatScreenState extends State<ClaudeChatScreen> {
             isUser: false,
             type: MessageType.text,
             text: text,
-            sources: src),
+            sources: src,
+            gallery: gal),
       );
     }
   }
@@ -303,6 +311,7 @@ class _ClaudeChatScreenState extends State<ClaudeChatScreen> {
       _epoch++;
       _hasShown = false;
       _pendingSources = <String>[];
+      _pendingGallery = <String>[];
       _autoTitle = null;
       _titleRequested = false;
     });
@@ -686,6 +695,8 @@ class _ClaudeChatScreenState extends State<ClaudeChatScreen> {
           : await MuseAi.dotSearch(arg);
       if (name == 'dot_search') {
         _pendingSources = MuseAi.extractSources(result);
+        _pendingGallery =
+            DotBrowser.lastShowImages ? List<String>.of(DotBrowser.lastImages) : <String>[];
       }
     } catch (e) {
       result = 'Gagal memanggil $name: ${MuseAi.friendlyError(e)}';
@@ -1071,6 +1082,11 @@ class _ClaudeChatScreenState extends State<ClaudeChatScreen> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 CleverMessage(text: m.text),
+                if (m.gallery.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 10),
+                    child: ImageCarousel(urls: m.gallery),
+                  ),
                 if (m.sources.isNotEmpty)
                   Padding(
                     padding: const EdgeInsets.only(top: 10),

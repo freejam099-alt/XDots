@@ -66,6 +66,11 @@ class DotBrowserException implements Exception {
 class DotBrowser {
   DotBrowser._();
 
+  /// Gambar hasil pencarian terakhir + apakah perlu ditampilkan
+  /// sebagai galeri (niat: gambar / ensiklopedia).
+  static List<String> lastImages = <String>[];
+  static bool lastShowImages = false;
+
   static const String _ua =
       'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 '
       '(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
@@ -302,9 +307,10 @@ class DotBrowser {
         }));
   }
 
-  static Future<T?> _backend<T>(String name, Future<T?> Function() f) async {
+  static Future<T?> _backend<T>(String name, Future<T?> Function() f,
+      [Duration? t]) async {
     try {
-      return await f().timeout(_timeout);
+      return await f().timeout(t ?? _timeout);
     } catch (_) {
       return null;
     }
@@ -796,6 +802,125 @@ class DotBrowser {
     ], answer: snip.trim());
   }
 
+  static String _unwrapBing(String raw) {
+    final String url = _unescape(raw);
+    final Uri? u = Uri.tryParse(url);
+    if (u != null && u.host.endsWith('bing.com') && u.path.startsWith('/ck/')) {
+      final String? p = u.queryParameters['u'];
+      if (p != null && p.length > 2 && p.startsWith('a1')) {
+        try {
+          String b = p.substring(2).replaceAll('-', '+').replaceAll('_', '/');
+          while (b.length % 4 != 0) {
+            b += '=';
+          }
+          return utf8.decode(base64.decode(b));
+        } catch (_) {}
+      }
+    }
+    return url;
+  }
+
+  static Future<List<DotItem>> _bing(String q) async {
+    final String html = await _get(
+        'https://www.bing.com/search?q=${Uri.encodeQueryComponent(q)}&setlang=id-ID&cc=ID&count=12');
+    final List<DotItem> out = <DotItem>[];
+    final RegExp link = RegExp(
+        r'<h2[^>]*>\s*<a[^>]*href="([^"]+)"[^>]*>(.*?)</a>',
+        caseSensitive: false,
+        dotAll: true);
+    for (final RegExpMatch m in RegExp(r'<li class="b_algo"[^>]*>(.*?)</li>',
+            caseSensitive: false, dotAll: true)
+        .allMatches(html)) {
+      final String b = m.group(1)!;
+      final RegExpMatch? l = link.firstMatch(b);
+      if (l == null) continue;
+      final String url = _unwrapBing(l.group(1)!);
+      final String title = _clean(_tags(l.group(2)!));
+      if (!url.startsWith('http') || title.isEmpty) continue;
+      final String sn = _clean(_tags(
+          RegExp(r'<p[^>]*>(.*?)</p>', caseSensitive: false, dotAll: true)
+                  .firstMatch(b)
+                  ?.group(1) ??
+              ''));
+      out.add(DotItem(title, url, sn, 'Bing'));
+    }
+    return out;
+  }
+
+  static Future<List<DotItem>> _mojeek(String q) async {
+    final String html = await _get(
+        'https://www.mojeek.com/search?q=${Uri.encodeQueryComponent(q)}');
+    final List<DotItem> out = <DotItem>[];
+    for (final RegExpMatch m in RegExp(r'<li[^>]*>(.*?)</li>',
+            caseSensitive: false, dotAll: true)
+        .allMatches(html)) {
+      final String b = m.group(1)!;
+      final RegExpMatch? a = RegExp(
+              r'<a\b([^>]*\bclass="title"[^>]*)>(.*?)</a>',
+              caseSensitive: false,
+              dotAll: true)
+          .firstMatch(b);
+      if (a == null) continue;
+      final String? href =
+          RegExp(r'href="([^"]+)"').firstMatch(a.group(1)!)?.group(1);
+      final String title = _clean(_tags(a.group(2)!));
+      if (href == null || !href.startsWith('http') || title.isEmpty) continue;
+      final String sn = _clean(_tags(RegExp(r'<p class="s">(.*?)</p>',
+                  caseSensitive: false, dotAll: true)
+              .firstMatch(b)
+              ?.group(1) ??
+          ''));
+      out.add(DotItem(title, _unescape(href), sn, 'Mojeek'));
+    }
+    return out;
+  }
+
+  static Future<List<DotItem>> _ddgAll(String q) async {
+    final String enc = Uri.encodeQueryComponent(q);
+    List<DotItem> r = <DotItem>[];
+    try {
+      r = _ddgHtml(await _get('https://html.duckduckgo.com/html/?q=$enc'));
+    } catch (_) {}
+    if (r.isEmpty) {
+      try {
+        final Response<String> p = await _dio.post<String>(
+            'https://html.duckduckgo.com/html/',
+            data: 'q=$enc&b=',
+            options: Options(
+                contentType: 'application/x-www-form-urlencoded',
+                headers: <String, dynamic>{
+                  'User-Agent': _ua,
+                  'Accept-Language': _acceptLang,
+                }));
+        r = _ddgHtml(p.data ?? '');
+      } catch (_) {}
+    }
+    if (r.isEmpty) {
+      try {
+        r = _ddgLite(await _get('https://lite.duckduckgo.com/lite/?q=$enc'));
+      } catch (_) {}
+    }
+    return r;
+  }
+
+  static Future<List<DotImage>> _bingImages(String q) async {
+    final String html = await _get(
+        'https://www.bing.com/images/search?q=${Uri.encodeQueryComponent(q)}&form=HDRSC2&first=1&safeSearch=Moderate');
+    final List<DotImage> out = <DotImage>[];
+    for (final RegExpMatch m
+        in RegExp(r'class="iusc"[^>]*?\sm="([^"]+)"', dotAll: true)
+            .allMatches(html)) {
+      final dynamic j = _json(_unescape(m.group(1)!));
+      final String thumb = _str(j, 'turl');
+      final String full = _str(j, 'murl');
+      final String url = thumb.startsWith('http') ? thumb : full;
+      if (!_usableImage(url)) continue;
+      out.add(DotImage(url, _unescape(_str(j, 't')), _str(j, 'purl')));
+      if (out.length >= 12) break;
+    }
+    return out;
+  }
+
   // ---------------------------------------------------------------- search
 
   /// Pencarian utama. Melempar [DotBrowserException] bila tak ada hasil.
@@ -843,43 +968,48 @@ class DotBrowser {
       final bool ency =
           intent == DotIntent.encyclopedia || intent == DotIntent.general;
       final List<Object?> r = await Future.wait<Object?>(<Future<Object?>>[
+        _backend<List<DotItem>>('Bing', () => _bing(q)),
+        _backend<List<DotItem>>('DDG', () => _ddgAll(q),
+            const Duration(seconds: 14)),
+        _backend<List<DotItem>>('Mojeek', () => _mojeek(q)),
         _backend<_Fetch>('Qwant Web', () => _qwant('web', q, size)),
-        _backend<String>('DDG HTML',
-            () => _get('https://html.duckduckgo.com/html/?q=${Uri.encodeQueryComponent(q)}')),
-        _backend<String>('DDG Lite',
-            () => _get('https://lite.duckduckgo.com/lite/?q=${Uri.encodeQueryComponent(q)}')),
-        ency ? _backend<_Fetch>('DDG Instant', () => _ddgInstant(q)) : Future<Object?>.value(null),
-        ency ? _backend<List<DotItem>>('Wikipedia', () => _wikipedia(q, size)) : Future<Object?>.value(null),
+        ency
+            ? _backend<_Fetch>('DDG Instant', () => _ddgInstant(q))
+            : Future<Object?>.value(null),
+        ency
+            ? _backend<List<DotItem>>('Wikipedia', () => _wikipedia(q, size))
+            : Future<Object?>.value(null),
         intent == DotIntent.news || intent == DotIntent.general
             ? _backend<_Fetch>('Jina', () => _jinaSearch(q))
             : Future<Object?>.value(null),
       ]);
       return <_Fetch>[
-        if (r[0] != null) r[0] as _Fetch,
-        _Fetch('DuckDuckGo HTML',
-            items: r[1] == null ? const [] : _ddgHtml(r[1] as String)),
-        _Fetch('DuckDuckGo Lite',
-            items: r[2] == null ? const [] : _ddgLite(r[2] as String)),
+        _Fetch('Bing', items: (r[0] as List<DotItem>?) ?? const []),
+        _Fetch('DuckDuckGo', items: (r[1] as List<DotItem>?) ?? const []),
+        _Fetch('Mojeek', items: (r[2] as List<DotItem>?) ?? const []),
         if (r[3] != null) r[3] as _Fetch,
-        _Fetch('Wikipedia', items: (r[4] as List<DotItem>?) ?? const []),
-        if (r[5] != null) r[5] as _Fetch,
+        if (r[4] != null) r[4] as _Fetch,
+        _Fetch('Wikipedia', items: (r[5] as List<DotItem>?) ?? const []),
+        if (r[6] != null) r[6] as _Fetch,
       ].where((_Fetch f) => f.useful).toList();
     }
 
     Future<List<_Fetch>> imageJob() async {
       final bool want = intent == DotIntent.images ||
-          intent == DotIntent.news ||
           intent == DotIntent.encyclopedia ||
-          intent == DotIntent.general;
+          intent == DotIntent.general ||
+          intent == DotIntent.news;
       if (!want) return <_Fetch>[];
       final List<Object?> r = await Future.wait<Object?>(<Future<Object?>>[
-        _backend<_Fetch>('Qwant Images', () => _qwant('images', q, 6)),
+        _backend<List<DotImage>>('Bing Images', () => _bingImages(q)),
+        _backend<_Fetch>('Qwant Images', () => _qwant('images', q, 8)),
         _backend<List<DotImage>>('Commons', () => _commons(q)),
       ]);
       return <_Fetch>[
-        if (r[0] != null) r[0] as _Fetch,
+        _Fetch('Bing Images', images: (r[0] as List<DotImage>?) ?? const []),
+        if (r[1] != null) r[1] as _Fetch,
         _Fetch('Wikimedia Commons',
-            images: (r[1] as List<DotImage>?) ?? const []),
+            images: (r[2] as List<DotImage>?) ?? const []),
       ].where((_Fetch f) => f.useful).toList();
     }
 
@@ -941,7 +1071,7 @@ class DotBrowser {
           'Dot Browser tidak bisa menjangkau sumber live ${intent.name} '
           'untuk "$q".');
     }
-    if (items.isEmpty && (answer ?? '').isEmpty && imgs.isEmpty) {
+    if (items.isEmpty && (answer ?? '').isEmpty && images.isEmpty) {
       throw DotBrowserException('Dot Browser tidak menemukan hasil untuk "$q".');
     }
     final StringBuffer b = StringBuffer();
@@ -955,11 +1085,13 @@ class DotBrowser {
       b.writeln('\n${i + 1}. ${it.title}\n   ${it.url}');
       if (it.text.isNotEmpty) b.writeln('   ${_snippet(it.text, 400)}');
     }
-    if (imgs.isNotEmpty) {
-      b.writeln('\nGambar (opsional ditampilkan dengan markdown):');
-      for (final DotImage im in imgs.take(3)) {
-        b.writeln('- ![${im.title.replaceAll(']', '')}](${im.url})');
-      }
+    lastImages = images.values.take(10).map((DotImage e) => e.url).toList();
+    lastShowImages = (intent == DotIntent.images ||
+            intent == DotIntent.encyclopedia) &&
+        lastImages.isNotEmpty;
+    if (lastShowImages) {
+      b.writeln('\nGambar: ${lastImages.length} gambar ditemukan dan otomatis '
+          'tampil sebagai galeri geser di chat (jangan tulis URL gambar).');
     }
     final String out = b.toString();
     return out.length > 8000 ? out.substring(0, 8000) : out;

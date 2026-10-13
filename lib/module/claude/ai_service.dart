@@ -161,6 +161,9 @@ class MuseAi {
     b.writeln('- tools_use [${_state('tools_use')}]: melihat daftar tool '
         'yang tersedia beserta statusnya. Format: [[tool:tools_use]]');
     b.writeln();
+    b.writeln('GALERI: bila hasil dot_search menyebut galeri gambar, gambar tampil '
+        'otomatis sebagai baris geser di chat; cukup beri komentar singkat, '
+        'jangan menulis URL atau markdown gambar.');
     b.writeln('SUMBER: JANGAN menulis URL, link markdown, atau baris "Sumber:" di '
         'jawabanmu. Sumber otomatis tampil sebagai ikon provider kecil di '
         'ujung jawaban.');

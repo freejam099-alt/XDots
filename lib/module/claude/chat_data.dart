@@ -53,6 +53,7 @@ class ChatMsg {
   final String genRatio;
   final String? genResult;
   final List<String> sources;
+  final List<String> gallery;
 
   const ChatMsg({
     required this.isUser,
@@ -71,6 +72,7 @@ class ChatMsg {
     this.genRatio = 'auto',
     this.genResult,
     this.sources = const [],
+    this.gallery = const [],
   });
 
   ChatMsg copyWith({
@@ -90,6 +92,7 @@ class ChatMsg {
     String? genRatio,
     String? genResult,
     List<String>? sources,
+    List<String>? gallery,
   }) {
     return ChatMsg(
       isUser: isUser ?? this.isUser,
@@ -108,6 +111,7 @@ class ChatMsg {
       genRatio: genRatio ?? this.genRatio,
       genResult: genResult ?? this.genResult,
       sources: sources ?? this.sources,
+      gallery: gallery ?? this.gallery,
     );
   }
 
@@ -129,6 +133,7 @@ class ChatMsg {
       'genRatio': genRatio,
       'genResult': genResult,
       'sources': sources,
+      'gallery': gallery,
     };
   }
 
@@ -163,6 +168,10 @@ class ChatMsg {
       sources: [
         if (json['sources'] is List)
           for (final dynamic e in json['sources'] as List) e.toString()
+      ],
+      gallery: [
+        if (json['gallery'] is List)
+          for (final dynamic e in json['gallery'] as List) e.toString()
       ],
     );
   }
