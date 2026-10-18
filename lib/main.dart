@@ -41,10 +41,16 @@ class MyApp extends ConsumerWidget {
     // Watch the selected theme so changing Light/Dark/System rebuilds the app.
     ref.watch(themeProvider);
     final ThemeType selected = ref.read(themeProvider.notifier).type;
-    final ThemeData lightTheme = LightTheme().theme(primaryColor).copyWith(
+    final ThemeData lightTheme = withAuraPopupTheme(
+      LightTheme().theme(primaryColor),
+      AppColors.light,
+    ).copyWith(
       extensions: const <ThemeExtension<dynamic>>[AppColors.light],
     );
-    final ThemeData darkTheme = DarkTheme().theme(primaryColor).copyWith(
+    final ThemeData darkTheme = withAuraPopupTheme(
+      DarkTheme().theme(primaryColor),
+      AppColors.dark,
+    ).copyWith(
       extensions: const <ThemeExtension<dynamic>>[AppColors.dark],
     );
     final ThemeMode mode = selected.materialMode;

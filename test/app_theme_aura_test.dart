@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:chat_bot/module/claude/app_theme.dart';
@@ -23,6 +24,42 @@ void main() {
           AppColors.light.gradEnd);
       expect(
           AppColors.dark.bgGradientBottom.colors.last, AppColors.dark.gradEnd);
+    });
+
+    test('uses AppColors surfaces and suppresses Material tint on popups', () {
+      for (final AppColors colors in [AppColors.light, AppColors.dark]) {
+        final theme = withAuraPopupTheme(ThemeData(), colors);
+        expect(theme.dialogTheme.backgroundColor, colors.surface);
+        expect(theme.dialogTheme.surfaceTintColor, Colors.transparent);
+        expect(theme.bottomSheetTheme.backgroundColor, colors.surface);
+        expect(theme.bottomSheetTheme.modalBackgroundColor, colors.surface);
+        expect(theme.bottomSheetTheme.surfaceTintColor, Colors.transparent);
+        expect(theme.popupMenuTheme.color, colors.surface);
+        expect(theme.popupMenuTheme.surfaceTintColor, Colors.transparent);
+        expect(theme.popupMenuTheme.textStyle?.color, colors.textPrimary);
+      }
+    });
+
+    test('keeps popup accent wash subtle and destructive text legible', () {
+      for (final AppColors colors in [AppColors.light, AppColors.dark]) {
+        final Color popupSurface = colors.popupGradient.colors.last;
+        expect(colors.popupGradient.colors.first, colors.surface);
+        expect(
+            popupSurface.computeLuminance(),
+            closeTo(
+              colors.surface.computeLuminance(),
+              0.12,
+            ));
+        final double lighter = colors.dangerAction.computeLuminance() >
+                popupSurface.computeLuminance()
+            ? colors.dangerAction.computeLuminance()
+            : popupSurface.computeLuminance();
+        final double darker = colors.dangerAction.computeLuminance() >
+                popupSurface.computeLuminance()
+            ? popupSurface.computeLuminance()
+            : colors.dangerAction.computeLuminance();
+        expect((lighter + 0.05) / (darker + 0.05), greaterThan(4.5));
+      }
     });
   });
 }

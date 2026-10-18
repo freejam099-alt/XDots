@@ -158,7 +158,8 @@ void main() {
       ));
       final avatar = find.byType(AgentAvatar);
       expect(tester.getCenter(avatar).dx, closeTo(width / 2, 0.01));
-      expect(tester.getSize(avatar).width, inInclusiveRange(40, 48));
+      expect(tester.getSize(avatar).width,
+          closeTo(((width - 32) * 0.14).clamp(40.0, 48.0) * 1.1, 0.001));
       expect(tester.getRect(find.text('Muse')).top,
           greaterThanOrEqualTo(tester.getRect(avatar).bottom));
       await tester.tap(find.byType(MenuButton));

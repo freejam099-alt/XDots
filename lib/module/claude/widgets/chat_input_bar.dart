@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
@@ -308,48 +309,80 @@ class _ChatInputBarState extends State<ChatInputBar> {
       transitionDuration: AppDims.animMed,
       pageBuilder: (ctx, _, __) {
         final Size screen = MediaQuery.sizeOf(ctx);
+        final EdgeInsets safeInsets = MediaQuery.paddingOf(ctx);
+        const double menuWidth = 200;
+        final double maxMenuHeight = math.max(
+          0,
+          math.min(
+            220,
+            screen.height - safeInsets.top - safeInsets.bottom - 16,
+          ),
+        );
+        final double left = topLeft.dx
+            .clamp(8.0, math.max(8.0, screen.width - menuWidth - 8))
+            .toDouble();
+        final double minTop = safeInsets.top + 8;
+        final double maxTop = math.max(
+          minTop,
+          screen.height - safeInsets.bottom - maxMenuHeight - 8,
+        );
+        final double top =
+            (topLeft.dy - maxMenuHeight - 10).clamp(minTop, maxTop).toDouble();
         return Stack(
           fit: StackFit.expand,
           children: [
             Positioned(
-              left: topLeft.dx,
-              bottom: screen.height - topLeft.dy + 10,
+              left: left,
+              top: top,
               child: Material(
                 type: MaterialType.transparency,
                 child: DefaultTextStyle(
                   style: const TextStyle(fontFamily: AppDims.fontFamily),
-                  child: Container(
-                    width: 200,
-                    padding: const EdgeInsets.symmetric(vertical: 6),
-                    decoration: BoxDecoration(
-                      color: c.surface,
-                      borderRadius: BorderRadius.circular(22),
-                      boxShadow: [c.shadowFloat],
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(
+                      maxWidth: math.max(0, screen.width - 16),
+                      maxHeight: maxMenuHeight,
                     ),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        _AttachRow(
-                            icon: const PhotoVectorIcon(),
-                            label: 'Foto',
-                            onTap: () =>
-                                Navigator.of(ctx).pop(AttachKind.photo)),
-                        _AttachRow(
-                            icon: const CameraVectorIcon(),
-                            label: 'Kamera',
-                            onTap: () =>
-                                Navigator.of(ctx).pop(AttachKind.camera)),
-                        _AttachRow(
-                            icon: const VideoVectorIcon(),
-                            label: 'Video',
-                            onTap: () =>
-                                Navigator.of(ctx).pop(AttachKind.video)),
-                        _AttachRow(
-                            icon: const FileVectorIcon(),
-                            label: 'Berkas',
-                            onTap: () =>
-                                Navigator.of(ctx).pop(AttachKind.file)),
-                      ],
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(22),
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(
+                          color: c.surface,
+                          gradient: c.popupGradient,
+                          boxShadow: [c.shadowFloat],
+                        ),
+                        child: SizedBox(
+                          width: menuWidth,
+                          child: SingleChildScrollView(
+                            padding: const EdgeInsets.symmetric(vertical: 6),
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                _AttachRow(
+                                    icon: const PhotoVectorIcon(),
+                                    label: 'Foto',
+                                    onTap: () => Navigator.of(ctx)
+                                        .pop(AttachKind.photo)),
+                                _AttachRow(
+                                    icon: const CameraVectorIcon(),
+                                    label: 'Kamera',
+                                    onTap: () => Navigator.of(ctx)
+                                        .pop(AttachKind.camera)),
+                                _AttachRow(
+                                    icon: const VideoVectorIcon(),
+                                    label: 'Video',
+                                    onTap: () => Navigator.of(ctx)
+                                        .pop(AttachKind.video)),
+                                _AttachRow(
+                                    icon: const FileVectorIcon(),
+                                    label: 'Berkas',
+                                    onTap: () =>
+                                        Navigator.of(ctx).pop(AttachKind.file)),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
                     ),
                   ),
                 ),
@@ -706,17 +739,24 @@ class _AttachRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final AppColors c = AppColors.of(context);
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTap: onTap,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 13),
-        child: Row(
-          children: [
-            icon,
-            const SizedBox(width: 14),
-            Text(label, style: TextStyle(fontSize: 16, color: c.textPrimary)),
-          ],
+    return Semantics(
+      button: true,
+      label: label,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: onTap,
+        child: ExcludeSemantics(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 13),
+            child: Row(
+              children: [
+                icon,
+                const SizedBox(width: 14),
+                Text(label,
+                    style: TextStyle(fontSize: 16, color: c.textPrimary)),
+              ],
+            ),
+          ),
         ),
       ),
     );

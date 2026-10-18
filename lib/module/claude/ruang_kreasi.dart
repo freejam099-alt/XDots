@@ -422,6 +422,11 @@ class _PopupModelPicker extends StatelessWidget {
       );
     } else {
       box = PullDownButton(
+        routeTheme: PullDownMenuRouteTheme(
+          backgroundColor: c.surface,
+          borderRadius: BorderRadius.circular(22),
+          shadow: c.shadowFloat,
+        ),
         itemBuilder: (BuildContext ctx) {
           final List<PullDownMenuEntry> items = <PullDownMenuEntry>[];
           groups.forEach((String name, List<_ModelOption> list) {

@@ -22,7 +22,7 @@ class AgentAvatar extends StatefulWidget {
   const AgentAvatar({
     super.key,
     required this.activity,
-    this.size = 44,
+    this.size = 48.4,
   }) : assert(size > 0);
 
   @override
@@ -163,7 +163,10 @@ class _AgentAvatarPainter extends CustomPainter {
     canvas.drawPath(blob, Paint()..color = skin);
 
     final double eyeY = height * 0.45;
-    final double eyeRadius = math.max(1.4, size.shortestSide * 0.058);
+    final double eyeRadius = math.max(
+      1.4,
+      size.shortestSide * (activity == AgentActivity.tool ? 0.066 : 0.058),
+    );
     double gazeX = 0;
     if (activity == AgentActivity.thinking) {
       gazeX = -size.width * 0.025;
@@ -190,26 +193,71 @@ class _AgentAvatarPainter extends CustomPainter {
       ..strokeWidth = math.max(1, size.shortestSide * 0.035)
       ..strokeCap = StrokeCap.round;
     final Path mouth = Path();
-    if (activity == AgentActivity.approval) {
-      mouth
-        ..moveTo(width * 0.39, height * 0.64)
-        ..quadraticBezierTo(
-            width * 0.5, height * 0.75, width * 0.61, height * 0.64);
-      canvas.drawPath(mouth, expression);
-    } else if (activity == AgentActivity.error) {
-      mouth
-        ..moveTo(width * 0.40, height * 0.70)
-        ..quadraticBezierTo(
-            width * 0.5, height * 0.62, width * 0.60, height * 0.70);
-      canvas.drawPath(mouth, expression);
-      final Paint brow = Paint()
-        ..color = eyeColor
-        ..strokeWidth = expression.strokeWidth
-        ..strokeCap = StrokeCap.round;
-      canvas.drawLine(Offset(width * 0.31, height * 0.32),
-          Offset(width * 0.43, height * 0.35), brow);
-      canvas.drawLine(Offset(width * 0.57, height * 0.35),
-          Offset(width * 0.69, height * 0.32), brow);
+    switch (activity) {
+      case AgentActivity.idle:
+        mouth
+          ..moveTo(width * 0.39, height * 0.64)
+          ..quadraticBezierTo(
+              width * 0.5, height * 0.75, width * 0.61, height * 0.64);
+        canvas.drawPath(mouth, expression);
+      case AgentActivity.approval:
+        mouth
+          ..moveTo(width * 0.37, height * 0.63)
+          ..quadraticBezierTo(
+              width * 0.5, height * 0.77, width * 0.63, height * 0.63);
+        canvas.drawPath(mouth, expression);
+        final Paint cheek = Paint()..color = eyeColor.withOpacity(0.55);
+        canvas.drawCircle(Offset(width * 0.31, height * 0.62),
+            size.shortestSide * 0.027, cheek);
+        canvas.drawCircle(Offset(width * 0.69, height * 0.62),
+            size.shortestSide * 0.027, cheek);
+      case AgentActivity.thinking:
+        mouth
+          ..moveTo(width * 0.43, height * 0.68)
+          ..quadraticBezierTo(
+              width * 0.5, height * 0.65, width * 0.57, height * 0.68);
+        canvas.drawPath(mouth, expression);
+        final Paint thinkingBrow = Paint()
+          ..color = eyeColor
+          ..strokeWidth = expression.strokeWidth
+          ..strokeCap = StrokeCap.round;
+        canvas.drawLine(Offset(width * 0.31, height * 0.34),
+            Offset(width * 0.43, height * 0.31), thinkingBrow);
+        canvas.drawLine(Offset(width * 0.57, height * 0.31),
+            Offset(width * 0.69, height * 0.34), thinkingBrow);
+      case AgentActivity.browsing:
+        canvas.drawCircle(
+          Offset(width * 0.5, height * 0.68),
+          size.shortestSide * 0.045,
+          Paint()..color = eyeColor,
+        );
+        final Paint raisedBrow = Paint()
+          ..color = eyeColor
+          ..strokeWidth = expression.strokeWidth
+          ..strokeCap = StrokeCap.round;
+        canvas.drawLine(Offset(width * 0.57, height * 0.30),
+            Offset(width * 0.69, height * 0.32), raisedBrow);
+      case AgentActivity.tool:
+        mouth
+          ..moveTo(width * 0.38, height * 0.63)
+          ..quadraticBezierTo(
+              width * 0.5, height * 0.79, width * 0.62, height * 0.63)
+          ..close();
+        canvas.drawPath(mouth, Paint()..color = eyeColor);
+      case AgentActivity.error:
+        mouth
+          ..moveTo(width * 0.40, height * 0.70)
+          ..quadraticBezierTo(
+              width * 0.5, height * 0.62, width * 0.60, height * 0.70);
+        canvas.drawPath(mouth, expression);
+        final Paint brow = Paint()
+          ..color = eyeColor
+          ..strokeWidth = expression.strokeWidth
+          ..strokeCap = StrokeCap.round;
+        canvas.drawLine(Offset(width * 0.31, height * 0.32),
+            Offset(width * 0.43, height * 0.35), brow);
+        canvas.drawLine(Offset(width * 0.57, height * 0.35),
+            Offset(width * 0.69, height * 0.32), brow);
     }
   }
 

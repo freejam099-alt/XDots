@@ -124,35 +124,49 @@ Future<void> _showDeletePopup(
     barrierColor: Colors.black.withOpacity(0.2),
     builder: (dialogContext) {
       final Size screen = MediaQuery.sizeOf(dialogContext);
-      final double topInset = MediaQuery.paddingOf(dialogContext).top;
+      final EdgeInsets safeInsets = MediaQuery.paddingOf(dialogContext);
+      final double topInset = safeInsets.top;
       final double width = math.min(280, math.max(0, screen.width - 32));
-      final double height = math.max(0, screen.height - topInset - 96);
+      final double height =
+          math.max(0, screen.height - topInset - safeInsets.bottom - 96);
       return Dialog(
         alignment: Alignment.topRight,
         insetPadding: EdgeInsets.only(
           top: topInset + 64,
           right: 16,
           left: 16,
-          bottom: 16,
+          bottom: safeInsets.bottom + 16,
         ),
-        backgroundColor: c.surface,
+        backgroundColor: Colors.transparent,
         surfaceTintColor: Colors.transparent,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
         child: ConstrainedBox(
           constraints: BoxConstraints(maxWidth: width, maxHeight: height),
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            child: TextButton.icon(
-              style: TextButton.styleFrom(
-                foregroundColor: c.pdfRed,
-                alignment: Alignment.centerLeft,
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(22),
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                color: c.surface,
+                gradient: c.popupGradient,
               ),
-              onPressed: () => Navigator.of(dialogContext).pop(true),
-              icon: ActionVectorIcon(
-                  kind: ActionIconKind.delete, size: 22, color: c.pdfRed),
-              label: const Text('Hapus semua pesan'),
+              child: SingleChildScrollView(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                child: TextButton.icon(
+                  style: TextButton.styleFrom(
+                    foregroundColor: c.dangerAction,
+                    alignment: Alignment.centerLeft,
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 10, vertical: 12),
+                  ),
+                  onPressed: () => Navigator.of(dialogContext).pop(true),
+                  icon: ActionVectorIcon(
+                      kind: ActionIconKind.delete,
+                      size: 22,
+                      color: c.dangerAction),
+                  label: const Text('Hapus semua pesan'),
+                ),
+              ),
             ),
           ),
         ),
@@ -217,7 +231,7 @@ class MuseHeader extends StatelessWidget {
     return LayoutBuilder(
       builder: (context, constraints) {
         final double avatarSize =
-            (constraints.maxWidth * 0.14).clamp(40.0, 48.0);
+            (constraints.maxWidth * 0.14).clamp(40.0, 48.0) * 1.1;
         // Reserve the same space on both sides for the two right-hand actions.
         // The center column grows naturally with accessibility text scaling.
         return Stack(

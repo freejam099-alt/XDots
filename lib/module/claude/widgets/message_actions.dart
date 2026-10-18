@@ -68,9 +68,10 @@ Future<void> showMessageActions(
                   height: menuH,
                   clipBehavior: Clip.antiAlias,
                   decoration: BoxDecoration(
-                    color: c.surfaceSoft,
-                    borderRadius: BorderRadius.circular(24),
-                    boxShadow: [c.shadowMenu],
+                    color: c.surface,
+                    gradient: c.popupGradient,
+                    borderRadius: BorderRadius.circular(22),
+                    boxShadow: [c.shadowFloat],
                   ),
                   child: SingleChildScrollView(
                     padding: const EdgeInsets.symmetric(vertical: 6),
@@ -162,7 +163,7 @@ class _ActionRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final AppColors c = AppColors.of(context);
-    final Color color = destructive ? c.pdfRed : c.textPrimary;
+    final Color color = destructive ? c.dangerAction : c.textPrimary;
     final Widget lead =
         leading ?? Icon(icon ?? Icons.circle_outlined, size: 22, color: color);
     return InkWell(

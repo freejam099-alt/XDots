@@ -175,6 +175,27 @@ class AppColors extends ThemeExtension<AppColors> {
     );
   }
 
+  /// A very soft accent wash for compact popup surfaces; unlike the page
+  /// gradient it keeps small labels and destructive actions high-contrast.
+  LinearGradient get popupGradient {
+    return LinearGradient(
+      begin: Alignment.topCenter,
+      end: Alignment.bottomCenter,
+      stops: const [0.0, 0.55, 0.8, 1.0],
+      colors: [
+        surface,
+        surface,
+        Color.alphaBlend(accent.withOpacity(0.03), surface),
+        Color.alphaBlend(accent.withOpacity(0.07), surface),
+      ],
+    );
+  }
+
+  /// High-contrast color for small destructive-action labels.
+  Color get dangerAction => brightness == Brightness.dark
+      ? const Color(0xFFFF647C)
+      : const Color(0xFFB4233C);
+
   BoxShadow get shadowFloat {
     return BoxShadow(
       color: accent.withOpacity(shadowOpacity),
@@ -320,6 +341,41 @@ class AppColors extends ThemeExtension<AppColors> {
           menuShadowBlur + (other.menuShadowBlur - menuShadowBlur) * t,
     );
   }
+}
+
+/// Apply the shared Muse surface treatment to Material popup surfaces.
+/// Keeping this in one place prevents default Material tint/white surfaces from
+/// leaking into light and dark mode dialogs, sheets, and popup menus.
+ThemeData withAuraPopupTheme(ThemeData theme, AppColors colors) {
+  final RoundedRectangleBorder shape = RoundedRectangleBorder(
+    borderRadius: BorderRadius.circular(22),
+  );
+  final TextStyle popupText = TextStyle(color: colors.textPrimary);
+  return theme.copyWith(
+    dialogTheme: DialogTheme(
+      backgroundColor: colors.surface,
+      surfaceTintColor: Colors.transparent,
+      shape: shape,
+      titleTextStyle: popupText.copyWith(
+        fontSize: 20,
+        fontWeight: FontWeight.w500,
+      ),
+      contentTextStyle: popupText.copyWith(fontSize: 16),
+    ),
+    bottomSheetTheme: BottomSheetThemeData(
+      backgroundColor: colors.surface,
+      modalBackgroundColor: colors.surface,
+      surfaceTintColor: Colors.transparent,
+      shape: shape,
+      clipBehavior: Clip.antiAlias,
+    ),
+    popupMenuTheme: PopupMenuThemeData(
+      color: colors.surface,
+      surfaceTintColor: Colors.transparent,
+      shape: shape,
+      textStyle: popupText,
+    ),
+  );
 }
 
 /// Ukuran tetap Muse (bukan warna).

@@ -74,7 +74,30 @@ class FloatingPillNavbar extends StatelessWidget {
                             child: Semantics(
                               selected: i == currentIndex,
                               child: IconButton(
+                                // The pill already paints a selected capsule.
+                                // A second pressed ink circle looked like a
+                                // duplicate shadow on top of that indicator.
+                                style: ButtonStyle(
+                                  overlayColor:
+                                      MaterialStateProperty.resolveWith<Color>(
+                                    (states) =>
+                                        states.contains(MaterialState.focused)
+                                            ? c.accent.withOpacity(0.14)
+                                            : Colors.transparent,
+                                  ),
+                                  splashFactory: NoSplash.splashFactory,
+                                  elevation: MaterialStateProperty.all(0),
+                                  shadowColor: MaterialStateProperty.all(
+                                      Colors.transparent),
+                                  foregroundColor:
+                                      MaterialStateProperty.all(c.navIcon),
+                                ),
                                 tooltip: labels[i],
+                                splashColor: Colors.transparent,
+                                highlightColor: Colors.transparent,
+                                hoverColor: Colors.transparent,
+                                focusColor: c.accent.withOpacity(0.14),
+                                color: c.navIcon,
                                 constraints: const BoxConstraints.tightFor(
                                   width: 48,
                                   height: 48,
