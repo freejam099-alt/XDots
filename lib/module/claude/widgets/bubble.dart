@@ -57,8 +57,8 @@ class ChatBubble extends StatelessWidget {
                     boxShadow: [c.shadowFloat],
                   ),
                   child: Center(
-                    child: Text(reaction!,
-                        style: const TextStyle(fontSize: 14)),
+                    child:
+                        Text(reaction!, style: const TextStyle(fontSize: 14)),
                   ),
                 ),
               ),
@@ -93,7 +93,24 @@ class _TypingBubbleState extends State<TypingBubble>
   @override
   void initState() {
     super.initState();
-    _c = AnimationController(vsync: this, duration: _cycle)..repeat();
+    _c = AnimationController(vsync: this, duration: _cycle);
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _syncMotion();
+  }
+
+  void _syncMotion() {
+    final bool shouldAnimate =
+        TickerMode.of(context) && !MediaQuery.of(context).disableAnimations;
+    if (shouldAnimate && !_c.isAnimating) {
+      _c.repeat();
+    } else if (!shouldAnimate && _c.isAnimating) {
+      _c.stop(canceled: false);
+      _c.value = 0;
+    }
   }
 
   @override
@@ -105,52 +122,55 @@ class _TypingBubbleState extends State<TypingBubble>
   @override
   Widget build(BuildContext context) {
     final AppColors c = AppColors.of(context);
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.start,
-      children: [
-        Container(
-          width: 64,
-          height: 44,
-          decoration: BoxDecoration(
-            color: c.aiBubble,
-            borderRadius: BorderRadius.circular(AppDims.bubbleRadius),
-          ),
-          child: AnimatedBuilder(
-            animation: _c,
-            builder: (context, _) {
-              return Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: List.generate(3, (i) {
-                  // Fase berurutan: 0, 1/3, 2/3 siklus.
-                  final double phase = (_c.value + i / 3) % 1.0;
-                  // Sinus penuh: naik-turun simetris (0 di tengah).
-                  final double dy =
-                      -_amplitude * _sin01(phase * 2 * _pi);
-                  // Opacity mengikuti ketinggian agar terasa hidup.
-                  final double opacity =
-                      (0.45 + 0.55 * (1 - (dy.abs() / _amplitude)))
-                          .clamp(0.0, 1.0)
-                          .toDouble();
-                  return Transform.translate(
-                    offset: Offset(0, dy),
-                    child: Container(
-                      width: _dotSize,
-                      height: _dotSize,
-                      margin:
-                          const EdgeInsets.symmetric(horizontal: 2.5),
-                      decoration: BoxDecoration(
-                        color: c.typingDot
-                            .withOpacity(opacity),
-                        shape: BoxShape.circle,
-                      ),
-                    ),
+    return Semantics(
+      label: 'Assistant is typing',
+      liveRegion: true,
+      child: ExcludeSemantics(
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.start,
+          children: [
+            Container(
+              width: 64,
+              height: 44,
+              decoration: BoxDecoration(
+                color: c.aiBubble,
+                borderRadius: BorderRadius.circular(AppDims.bubbleRadius),
+              ),
+              child: AnimatedBuilder(
+                animation: _c,
+                builder: (context, _) {
+                  return Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: List.generate(3, (i) {
+                      // Fase berurutan: 0, 1/3, 2/3 siklus.
+                      final double phase = (_c.value + i / 3) % 1.0;
+                      // Sinus penuh: naik-turun simetris (0 di tengah).
+                      final double dy = -_amplitude * _sin01(phase * 2 * _pi);
+                      // Opacity mengikuti ketinggian agar terasa hidup.
+                      final double opacity =
+                          (0.45 + 0.55 * (1 - (dy.abs() / _amplitude)))
+                              .clamp(0.0, 1.0)
+                              .toDouble();
+                      return Transform.translate(
+                        offset: Offset(0, dy),
+                        child: Container(
+                          width: _dotSize,
+                          height: _dotSize,
+                          margin: const EdgeInsets.symmetric(horizontal: 2.5),
+                          decoration: BoxDecoration(
+                            color: c.typingDot.withOpacity(opacity),
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+                      );
+                    }),
                   );
-                }),
-              );
-            },
-          ),
+                },
+              ),
+            ),
+          ],
         ),
-      ],
+      ),
     );
   }
 }

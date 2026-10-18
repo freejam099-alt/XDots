@@ -5,7 +5,6 @@ import 'package:chat_bot/hive_bean/supported_models.dart';
 import 'package:chat_bot/utils/hive_box.dart';
 import 'package:loading_animation_widget/loading_animation_widget.dart';
 
-import 'ai_service.dart';
 import 'app_theme.dart';
 import 'chat_data.dart';
 import 'model_store.dart';
@@ -45,8 +44,7 @@ class _ServerPanelState extends State<ServerPanel> {
       final List<SupportedModels> list = bean.supportedModels ?? [];
       for (final SupportedModels m in list) {
         if (m.id == null || m.id!.isEmpty) continue;
-        found.add(
-            _FetchedModel(m.id!, bean.alias ?? m.ownedBy ?? 'Server'));
+        found.add(_FetchedModel(m.id!, bean.alias ?? m.ownedBy ?? 'Server'));
       }
     }
     if (!mounted) return;
@@ -98,8 +96,7 @@ class _ServerPanelState extends State<ServerPanel> {
           iconTheme: IconThemeData(color: c.textPrimary),
           title: Text(
             'Kelola Model',
-            style: TextStyle(
-                color: c.textPrimary, fontWeight: FontWeight.bold),
+            style: TextStyle(color: c.textPrimary, fontWeight: FontWeight.bold),
           ),
         ),
         body: ListView(
@@ -110,8 +107,7 @@ class _ServerPanelState extends State<ServerPanel> {
           ),
           children: [
             _GroupHeader(
-                icon: const GeminiVectorIcon(size: 22),
-                title: 'Model AI'),
+                icon: const GeminiVectorIcon(size: 22), title: 'Model AI'),
             _FetchButton(fetching: _fetching, onTap: _fetch),
             const SizedBox(height: 10),
             _ManualRow(
@@ -137,17 +133,14 @@ class _ServerPanelState extends State<ServerPanel> {
             _ProviderLinkRow(apiType: APIType.openAI, label: 'ChatGPT'),
             _ProviderLinkRow(apiType: APIType.gemini, label: 'Gemini'),
             _ProviderLinkRow(apiType: APIType.ollama, label: 'Ollama'),
-            _ProviderLinkRow(
-                apiType: APIType.deepSeek, label: 'DeepSeek'),
+            _ProviderLinkRow(apiType: APIType.deepSeek, label: 'DeepSeek'),
             const SizedBox(height: 16),
             _GroupHeader(
-                icon: const BraveVectorIcon(size: 22),
-                title: 'Search Service'),
+                icon: const BraveVectorIcon(size: 22), title: 'Search Service'),
             for (final SearchService s in kSearchServices)
               SearchServiceRow(service: s),
             const SizedBox(height: 16),
-            _GroupHeader(
-                icon: const McpVectorIcon(size: 22), title: 'MCP'),
+            _GroupHeader(icon: const McpVectorIcon(size: 22), title: 'MCP'),
             for (final McpServer m in kMcpCatalog)
               McpServiceRow(label: m.label, id: m.id),
             for (final String id in ModelStore.customMcp())
@@ -157,8 +150,7 @@ class _ServerPanelState extends State<ServerPanel> {
                 Expanded(
                   child: Container(
                     height: 48,
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 14),
+                    padding: const EdgeInsets.symmetric(horizontal: 14),
                     decoration: BoxDecoration(
                       color: c.surface,
                       borderRadius: BorderRadius.circular(999),
@@ -167,12 +159,10 @@ class _ServerPanelState extends State<ServerPanel> {
                     child: Center(
                       child: TextField(
                         controller: _mcpController,
-                        style: TextStyle(
-                            fontSize: 15, color: c.textPrimary),
+                        style: TextStyle(fontSize: 15, color: c.textPrimary),
                         decoration: InputDecoration(
                           hintText: 'Endpoint MCP manual',
-                          hintStyle: TextStyle(
-                              fontSize: 15, color: c.textHint),
+                          hintStyle: TextStyle(fontSize: 15, color: c.textHint),
                           border: InputBorder.none,
                           isDense: true,
                           contentPadding: EdgeInsets.zero,
@@ -192,8 +182,7 @@ class _ServerPanelState extends State<ServerPanel> {
                       color: c.accent,
                       shape: BoxShape.circle,
                     ),
-                    child: const Icon(Icons.add,
-                        color: Colors.white),
+                    child: const Icon(Icons.add, color: Colors.white),
                   ),
                 ),
               ],
@@ -225,11 +214,13 @@ class _GroupHeader extends StatelessWidget {
         children: [
           icon,
           const SizedBox(width: 10),
-          Text(title,
-              style: TextStyle(
-                  fontSize: 17,
-                  fontWeight: FontWeight.bold,
-                  color: c.textPrimary)),
+          Flexible(
+            child: Text(title,
+                style: TextStyle(
+                    fontSize: 17,
+                    fontWeight: FontWeight.bold,
+                    color: c.textPrimary)),
+          ),
         ],
       ),
     );
@@ -250,8 +241,7 @@ class _FetchButton extends StatelessWidget {
       child: Container(
         height: 52,
         decoration: BoxDecoration(
-          gradient:
-              LinearGradient(colors: [c.accent, c.accentEnd]),
+          gradient: LinearGradient(colors: [c.accent, c.accentEnd]),
           borderRadius: BorderRadius.circular(999),
         ),
         child: Center(
@@ -276,9 +266,7 @@ class _ManualRow extends StatelessWidget {
   final String hint;
   final VoidCallback onAdd;
   const _ManualRow(
-      {required this.controller,
-      required this.hint,
-      required this.onAdd});
+      {required this.controller, required this.hint, required this.onAdd});
 
   @override
   Widget build(BuildContext context) {
@@ -297,12 +285,10 @@ class _ManualRow extends StatelessWidget {
             child: Center(
               child: TextField(
                 controller: controller,
-                style:
-                    TextStyle(fontSize: 16, color: c.textPrimary),
+                style: TextStyle(fontSize: 16, color: c.textPrimary),
                 decoration: InputDecoration(
                   hintText: hint,
-                  hintStyle:
-                      TextStyle(fontSize: 15, color: c.textHint),
+                  hintStyle: TextStyle(fontSize: 15, color: c.textHint),
                   border: InputBorder.none,
                   isDense: true,
                   contentPadding: EdgeInsets.zero,
@@ -340,8 +326,7 @@ class _ModelRow extends StatelessWidget {
     final AppColors c = AppColors.of(context);
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
-      padding:
-          const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
       decoration: BoxDecoration(
         color: c.surface,
         borderRadius: BorderRadius.circular(22),
@@ -360,18 +345,19 @@ class _ModelRow extends StatelessWidget {
                         color: c.textPrimary)),
                 Text(
                   'ID: ${model.id} · ${model.provider}',
-                  style:
-                      TextStyle(fontSize: 12, color: c.textMuted),
+                  style: TextStyle(fontSize: 12, color: c.textMuted),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
               ],
             ),
           ),
-          GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            onTap: onPlus,
-            child: Container(
+          IconButton(
+            tooltip: 'Tambahkan ${model.id}',
+            onPressed: onPlus,
+            constraints: const BoxConstraints.tightFor(width: 48, height: 48),
+            padding: EdgeInsets.zero,
+            icon: Container(
               width: 40,
               height: 40,
               decoration: BoxDecoration(
@@ -400,8 +386,7 @@ class _ProviderLinkRow extends StatelessWidget {
       onTap: () => F.push(OpenAIListPage(apiType: apiType)),
       child: Container(
         margin: const EdgeInsets.only(bottom: 8),
-        padding:
-            const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
         decoration: BoxDecoration(
           color: c.surface,
           borderRadius: BorderRadius.circular(22),
@@ -411,8 +396,7 @@ class _ProviderLinkRow extends StatelessWidget {
           children: [
             Expanded(
               child: Text('Kelola $label',
-                  style: TextStyle(
-                      fontSize: 15, color: c.textPrimary)),
+                  style: TextStyle(fontSize: 15, color: c.textPrimary)),
             ),
             Icon(Icons.chevron_right, color: c.textMuted),
           ],

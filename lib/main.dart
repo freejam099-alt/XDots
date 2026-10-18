@@ -7,6 +7,7 @@ import 'base.dart';
 import 'base/riverpod/provider_log.dart';
 import 'base/theme.dart';
 import 'initial.dart';
+
 ProviderContainer? globalRef;
 void main() async {
   await Initial.init();
@@ -24,7 +25,8 @@ void main() async {
     ),
   );
   if (Platform.isAndroid) {
-    SystemUiOverlayStyle style = const SystemUiOverlayStyle(statusBarColor: Colors.transparent);
+    SystemUiOverlayStyle style =
+        const SystemUiOverlayStyle(statusBarColor: Colors.transparent);
     SystemChrome.setSystemUIOverlayStyle(style);
   }
 }
@@ -36,33 +38,31 @@ class MyApp extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     var globalLanguage = ref.watch(globalLanguageProvider);
     var primaryColor = ref.watch(primaryColorProvider);
-    final ThemeData lightTheme =
-        ref.watch(themeProvider).theme(primaryColor).copyWith(
+    // Watch the selected theme so changing Light/Dark/System rebuilds the app.
+    ref.watch(themeProvider);
+    final ThemeType selected = ref.read(themeProvider.notifier).type;
+    final ThemeData lightTheme = LightTheme().theme(primaryColor).copyWith(
       extensions: const <ThemeExtension<dynamic>>[AppColors.light],
     );
-    final bool isDark =
-        MediaQuery.platformBrightnessOf(context) == Brightness.dark;
-    final ThemeData darkTheme = ThemeData.dark().copyWith(
+    final ThemeData darkTheme = DarkTheme().theme(primaryColor).copyWith(
       extensions: const <ThemeExtension<dynamic>>[AppColors.dark],
     );
+    final ThemeMode mode = selected.materialMode;
     return MaterialApp(
       key: ValueKey(globalLanguage),
       navigatorKey: F.navigatorKey,
       title: S.current.app_name,
-      localeResolutionCallback: (Locale? locale, Iterable<Locale> supportedLocales) {
+      localeResolutionCallback:
+          (Locale? locale, Iterable<Locale> supportedLocales) {
         if (locale != null) {
           return locale;
         }
         return supportedLocales.first;
       },
       debugShowCheckedModeBanner: false,
-      theme: isDark
-          ? lightTheme.copyWith(
-              extensions:
-                  const <ThemeExtension<dynamic>>[AppColors.dark])
-          : lightTheme,
+      theme: lightTheme,
       darkTheme: darkTheme,
-      themeMode: ThemeMode.system,
+      themeMode: mode,
       localizationsDelegates: const [
         S.delegate,
         GlobalMaterialLocalizations.delegate,

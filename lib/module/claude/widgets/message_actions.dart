@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:share_plus/share_plus.dart';
+import 'dart:math' as math;
 
 import '../../../utils/extension_string.dart';
 import '../app_theme.dart';
@@ -20,8 +21,6 @@ Future<void> showMessageActions(
   final bool canEdit = isUser && onEdit != null;
   final bool canResend = isUser && onResend != null;
   final int rows = 3 + (canEdit ? 1 : 0) + (canResend ? 1 : 0);
-  const double menuW = 220;
-  final double menuH = rows * 48.0 + 12;
   return showGeneralDialog<void>(
     context: context,
     barrierDismissible: true,
@@ -32,15 +31,27 @@ Future<void> showMessageActions(
       final AppColors c = AppColors.of(ctx);
       final Size screen = MediaQuery.sizeOf(ctx);
       final EdgeInsets pad = MediaQuery.paddingOf(ctx);
+      final EdgeInsets insets = MediaQuery.viewInsetsOf(ctx);
+      final double menuW = math.min(220, math.max(0, screen.width - 32));
+      final double bottomInset = math.max(pad.bottom, insets.bottom);
+      final double usableTop = pad.top + 8;
+      final double usableBottom = screen.height - bottomInset - 8;
+      final double availableHeight = math.max(0, usableBottom - usableTop);
+      final double rowHeight = math.max(
+        48,
+        MediaQuery.textScalerOf(ctx).scale(16) * 1.4 + 16,
+      );
+      final double menuH = math.min(availableHeight, rows * rowHeight + 12);
       final Offset a = anchor ?? Offset(screen.width / 2, screen.height / 2);
-      final double left =
-          (a.dx - menuW / 2).clamp(16.0, screen.width - menuW - 16.0).toDouble();
+      final double left = (a.dx - menuW / 2)
+          .clamp(0.0, math.max(0, screen.width - menuW))
+          .toDouble();
       double top = a.dy + 12;
-      if (top + menuH > screen.height - pad.bottom - 16) {
+      if (top + menuH > usableBottom) {
         top = a.dy - menuH - 12;
       }
       top = top
-          .clamp(pad.top + 8, screen.height - menuH - pad.bottom - 8)
+          .clamp(usableTop, math.max(usableTop, usableBottom - menuH))
           .toDouble();
       return Stack(
         fit: StackFit.expand,
@@ -54,59 +65,63 @@ Future<void> showMessageActions(
                 style: const TextStyle(fontFamily: AppDims.fontFamily),
                 child: Container(
                   width: menuW,
-                  padding: const EdgeInsets.symmetric(vertical: 6),
+                  height: menuH,
+                  clipBehavior: Clip.antiAlias,
                   decoration: BoxDecoration(
-                    color: c.surface,
-                    borderRadius: BorderRadius.circular(22),
-                    boxShadow: [c.shadowFloat],
+                    color: c.surfaceSoft,
+                    borderRadius: BorderRadius.circular(24),
+                    boxShadow: [c.shadowMenu],
                   ),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      if (canEdit)
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.symmetric(vertical: 6),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (canEdit)
+                          _ActionRow(
+                            leading: const EditVectorIcon(size: 20),
+                            label: 'Edit',
+                            onTap: () {
+                              Navigator.of(ctx).pop();
+                              onEdit();
+                            },
+                          ),
                         _ActionRow(
-                          leading: const EditVectorIcon(size: 20),
-                          label: 'Edit',
+                          icon: Icons.copy_outlined,
+                          label: 'Salin',
                           onTap: () {
                             Navigator.of(ctx).pop();
-                            onEdit!();
+                            onCopy();
                           },
                         ),
-                      _ActionRow(
-                        icon: Icons.copy_outlined,
-                        label: 'Salin',
-                        onTap: () {
-                          Navigator.of(ctx).pop();
-                          onCopy();
-                        },
-                      ),
-                      _ActionRow(
-                        icon: Icons.share_outlined,
-                        label: 'Bagikan',
-                        onTap: () {
-                          Navigator.of(ctx).pop();
-                          onShare();
-                        },
-                      ),
-                      if (canResend)
                         _ActionRow(
-                          icon: Icons.refresh,
-                          label: 'Kirim ulang',
+                          icon: Icons.share_outlined,
+                          label: 'Bagikan',
                           onTap: () {
                             Navigator.of(ctx).pop();
-                            onResend!();
+                            onShare();
                           },
                         ),
-                      _ActionRow(
-                        icon: Icons.delete_outline,
-                        label: 'Hapus',
-                        destructive: true,
-                        onTap: () {
-                          Navigator.of(ctx).pop();
-                          onDelete();
-                        },
-                      ),
-                    ],
+                        if (canResend)
+                          _ActionRow(
+                            icon: Icons.refresh,
+                            label: 'Kirim ulang',
+                            onTap: () {
+                              Navigator.of(ctx).pop();
+                              onResend();
+                            },
+                          ),
+                        _ActionRow(
+                          icon: Icons.delete_outline,
+                          label: 'Hapus',
+                          destructive: true,
+                          onTap: () {
+                            Navigator.of(ctx).pop();
+                            onDelete();
+                          },
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ),
@@ -147,25 +162,29 @@ class _ActionRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final AppColors c = AppColors.of(context);
-    final Color color =
-        destructive ? c.pdfRed : c.textPrimary;
-    final Widget lead = leading ??
-        Icon(icon ?? Icons.circle_outlined, size: 22, color: color);
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
+    final Color color = destructive ? c.pdfRed : c.textPrimary;
+    final Widget lead =
+        leading ?? Icon(icon ?? Icons.circle_outlined, size: 22, color: color);
+    return InkWell(
       onTap: onTap,
-      child: Padding(
-        padding:
-            const EdgeInsets.symmetric(horizontal: 18, vertical: 13),
-        child: Row(
-          children: [
-            SizedBox(width: 22, height: 22, child: lead),
-            const SizedBox(width: 14),
-            Text(
-              label,
-              style: TextStyle(fontSize: 16, color: color),
-            ),
-          ],
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(minHeight: 48),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
+          child: Row(
+            children: [
+              SizedBox(width: 22, height: 22, child: lead),
+              const SizedBox(width: 14),
+              Flexible(
+                child: Text(
+                  label,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(fontSize: 16, color: color),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

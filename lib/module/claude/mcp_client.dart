@@ -13,28 +13,34 @@ class McpException implements Exception {
 /// Dipakai untuk server MCP Exa: https://mcp.exa.ai/mcp
 class McpClient {
   final String url;
-  McpClient(this.url);
+  final Dio _client;
+  McpClient(this.url, {Dio? dio})
+      : _client = dio ??
+            Dio(BaseOptions(
+              connectTimeout: const Duration(seconds: 20),
+              receiveTimeout: const Duration(seconds: 60),
+              responseType: ResponseType.plain,
+              validateStatus: (int? s) => s != null && s < 500,
+            ));
 
   String? _session;
   int _id = 0;
   bool _ready = false;
-
-  Dio _dio() => Dio(BaseOptions(
-        connectTimeout: const Duration(seconds: 20),
-        receiveTimeout: const Duration(seconds: 60),
-        responseType: ResponseType.plain,
-        validateStatus: (int? s) => s != null && s < 500,
-      ));
+  Future<void>? _initialization;
 
   /// Ambil pesan JSON-RPC dari respons JSON biasa atau SSE (`data: {...}`).
-  Map<String, dynamic>? _parse(String raw, int id) {
+  static Map<String, dynamic>? parseResponse(String raw, int id) {
     final String body = raw.trim();
     if (body.isEmpty) return null;
     if (body.startsWith('{')) {
-      final dynamic j = jsonDecode(body);
-      return j is Map<String, dynamic> ? j : null;
+      try {
+        final dynamic j = jsonDecode(body);
+        if (j is Map && j['jsonrpc'] == '2.0' && j['id'] == id) {
+          return Map<String, dynamic>.from(j);
+        }
+      } catch (_) {}
+      return null;
     }
-    Map<String, dynamic>? last;
     for (final String line in const LineSplitter().convert(body)) {
       final String l = line.trim();
       if (!l.startsWith('data:')) continue;
@@ -42,13 +48,12 @@ class McpClient {
       if (payload.isEmpty || !payload.startsWith('{')) continue;
       try {
         final dynamic j = jsonDecode(payload);
-        if (j is Map<String, dynamic>) {
-          if (j['id'] == id) return j;
-          last = j;
+        if (j is Map && j['jsonrpc'] == '2.0' && j['id'] == id) {
+          return Map<String, dynamic>.from(j);
         }
       } catch (_) {}
     }
-    return last;
+    return null;
   }
 
   Future<dynamic> _rpc(String method, Map<String, dynamic>? params,
@@ -60,7 +65,7 @@ class McpClient {
       if (params != null) 'params': params,
       if (!notify) 'id': id,
     };
-    final Response<String> res = await _dio().post<String>(
+    final Response<String> res = await _client.post<String>(
       url,
       data: jsonEncode(payload),
       options: Options(headers: <String, dynamic>{
@@ -71,11 +76,11 @@ class McpClient {
     );
     final String? sid = res.headers.value('mcp-session-id');
     if (sid != null && sid.isNotEmpty) _session = sid;
-    if (notify) return null;
     if ((res.statusCode ?? 500) >= 400) {
       throw McpException('MCP HTTP ${res.statusCode}');
     }
-    final Map<String, dynamic>? msg = _parse(res.data ?? '', id);
+    if (notify) return null;
+    final Map<String, dynamic>? msg = parseResponse(res.data ?? '', id);
     if (msg == null) throw const McpException('Respons MCP kosong');
     if (msg['error'] is Map) {
       final dynamic m = (msg['error'] as Map)['message'];
@@ -84,18 +89,23 @@ class McpClient {
     return msg['result'];
   }
 
-  Future<void> _init() async {
-    if (_ready) return;
-    try {
-      await _rpc('initialize', <String, dynamic>{
-        'protocolVersion': '2025-03-26',
-        'capabilities': <String, dynamic>{},
-        'clientInfo': <String, dynamic>{'name': 'XDots', 'version': '1.0'},
-      });
-      await _rpc('notifications/initialized', null, notify: true);
-    } catch (_) {
-      // Server stateless: langsung tools/call tetap bisa.
+  Future<void> _init() {
+    if (_ready) return Future<void>.value();
+    return _initialization ??= _initialize().whenComplete(() {
+      _initialization = null;
+    });
+  }
+
+  Future<void> _initialize() async {
+    final dynamic initialized = await _rpc('initialize', <String, dynamic>{
+      'protocolVersion': '2025-03-26',
+      'capabilities': <String, dynamic>{},
+      'clientInfo': <String, dynamic>{'name': 'XDots', 'version': '1.0'},
+    });
+    if (initialized is! Map) {
+      throw const McpException('Respons initialize MCP tidak valid');
     }
+    await _rpc('notifications/initialized', null, notify: true);
     _ready = true;
   }
 
@@ -106,16 +116,17 @@ class McpClient {
       'name': name,
       'arguments': args,
     });
+    if (r is! Map || r['content'] is! List) {
+      throw const McpException('Respons tools/call MCP tidak valid');
+    }
     final StringBuffer out = StringBuffer();
-    if (r is Map && r['content'] is List) {
-      for (final dynamic c in r['content'] as List) {
-        if (c is Map && c['text'] is String) {
-          out.writeln(c['text'] as String);
-        }
+    for (final dynamic c in r['content'] as List) {
+      if (c is Map && c['text'] is String) {
+        out.writeln(c['text'] as String);
       }
     }
     final String text = out.toString().trim();
-    if (r is Map && r['isError'] == true) {
+    if (r['isError'] == true) {
       throw McpException(text.isEmpty ? 'Tool MCP gagal' : text);
     }
     if (text.isEmpty) return '(Tool tidak mengembalikan teks.)';

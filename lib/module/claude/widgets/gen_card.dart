@@ -59,9 +59,7 @@ class GenCard extends StatelessWidget {
         ToolCallCard(
           toolName: _toolName,
           detail: _phaseLabel(),
-          status: phase == GenPhase.done
-              ? ToolStatus.done
-              : ToolStatus.running,
+          status: phase == GenPhase.done ? ToolStatus.done : ToolStatus.running,
         ),
         const SizedBox(height: 8),
         _phaseBody(context),
@@ -99,13 +97,36 @@ class GenCard extends StatelessWidget {
         return _GeneratingBox(ratio: ratio, isVideo: isVideo);
       case GenPhase.done:
         if (result == null || result!.isEmpty) {
-          return _GeneratingBox(ratio: ratio, isVideo: isVideo);
+          final AppColors c = AppColors.of(context);
+          return _Sized(
+            ratio: ratio,
+            child: AspectRatio(
+              aspectRatio: _aspectOf(ratio),
+              child: Container(
+                decoration: BoxDecoration(
+                  color: c.surfaceSoft,
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.file_present_outlined,
+                          color: c.textMuted, size: 30),
+                      const SizedBox(height: 8),
+                      Text('Hasil tidak tersedia',
+                          style: TextStyle(color: c.textMuted)),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          );
         }
         return _Sized(
           ratio: ratio,
           child: GestureDetector(
-            onLongPressStart: (d) => showSaveMenu(
-                context, d.globalPosition,
+            onLongPressStart: (d) => showSaveMenu(context, d.globalPosition,
                 path: result!, isVideo: isVideo),
             child: isVideo
                 ? _ResultVideo(path: result!, ratio: ratio)
@@ -125,8 +146,7 @@ class _PromptBubble extends StatelessWidget {
     final AppColors c = AppColors.of(context);
     return Container(
       width: double.infinity,
-      padding:
-          const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
         color: c.aiBubble,
         borderRadius: BorderRadius.circular(AppDims.bubbleRadius),
@@ -156,8 +176,7 @@ class _Sized extends StatelessWidget {
       final double maxW = cons.maxWidth.isFinite ? cons.maxWidth : 300;
       return Align(
         alignment: Alignment.topLeft,
-        child: SizedBox(
-            width: _boxWidth(maxW, _aspectOf(ratio)), child: child),
+        child: SizedBox(width: _boxWidth(maxW, _aspectOf(ratio)), child: child),
       );
     });
   }
@@ -259,7 +278,8 @@ class _GeneratingBoxState extends State<_GeneratingBox>
                 );
                 if (widget.isVideo) {
                   return CustomPaint(
-                    painter: _BeamPainter(t: t, fill: c.surface, accent: c.accent),
+                    painter:
+                        _BeamPainter(t: t, fill: c.surface, accent: c.accent),
                     child: dots,
                   );
                 }
@@ -402,7 +422,6 @@ class _ResultImageState extends State<_ResultImage> {
   }
 }
 
-
 /// Hasil video: kartu kecil, ketuk untuk membuka (URL -> browser/pemutar,
 /// file lokal -> bagikan ke aplikasi pemutar).
 class _ResultVideo extends StatelessWidget {
@@ -434,8 +453,7 @@ class _ResultVideo extends StatelessWidget {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(Icons.play_circle_fill_rounded,
-                  size: 52, color: c.accent),
+              Icon(Icons.play_circle_fill_rounded, size: 52, color: c.accent),
               const SizedBox(height: 8),
               Text('Video siap, ketuk untuk membuka',
                   style: TextStyle(fontSize: 12, color: c.textMuted)),

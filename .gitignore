@@ -44,3 +44,10 @@ app.*.map.json
 
 # FVM Version Cache
 .fvm/
+# Local Codebase Memory index
+.codebase-memory/
+
+# Private Android signing material
+/android/key.properties
+*.keystore
+*.jks

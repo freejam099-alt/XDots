@@ -48,6 +48,14 @@ class _SearchServiceRowState extends State<SearchServiceRow> {
   }
 
   @override
+  void didUpdateWidget(covariant SearchServiceRow oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.service.id != widget.service.id) {
+      _keyController.text = ModelStore.searchKey(widget.service.id);
+    }
+  }
+
+  @override
   void dispose() {
     _keyController.dispose();
     super.dispose();
@@ -56,13 +64,11 @@ class _SearchServiceRowState extends State<SearchServiceRow> {
   @override
   Widget build(BuildContext context) {
     final AppColors c = AppColors.of(context);
-    final bool enabled =
-        ModelStore.searchEnabled(widget.service.id);
+    final bool enabled = ModelStore.searchEnabled(widget.service.id);
     final bool needKey = widget.service.id != 'dot_browsing';
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
-      padding:
-          const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
       decoration: _rowDecor(c),
       child: Column(
         children: [
@@ -72,8 +78,7 @@ class _SearchServiceRowState extends State<SearchServiceRow> {
               const SizedBox(width: 10),
               Expanded(
                 child: Text(widget.service.label,
-                    style: TextStyle(
-                        fontSize: 15, color: c.textPrimary)),
+                    style: TextStyle(fontSize: 15, color: c.textPrimary)),
               ),
               Switch.adaptive(
                 value: enabled,
@@ -91,19 +96,19 @@ class _SearchServiceRowState extends State<SearchServiceRow> {
               child: TextField(
                 controller: _keyController,
                 obscureText: true,
-                style: TextStyle(
-                    fontSize: 14, color: c.textPrimary),
+                style: TextStyle(fontSize: 14, color: c.textPrimary),
                 decoration: InputDecoration(
                   hintText: 'API Key ${widget.service.label}',
-                  hintStyle: TextStyle(
-                      fontSize: 14, color: c.textHint),
+                  hintStyle: TextStyle(fontSize: 14, color: c.textHint),
                   border: InputBorder.none,
                   isDense: true,
                   contentPadding: EdgeInsets.zero,
                 ),
+                onChanged: (v) {
+                  ModelStore.setSearchKey(widget.service.id, v.trim());
+                },
                 onSubmitted: (v) {
-                  ModelStore.setSearchKey(
-                      widget.service.id, v.trim());
+                  ModelStore.setSearchKey(widget.service.id, v.trim());
                 },
               ),
             ),
@@ -119,10 +124,7 @@ class McpServiceRow extends StatefulWidget {
   final String id;
   final bool custom;
   const McpServiceRow(
-      {super.key,
-      required this.label,
-      required this.id,
-      this.custom = false});
+      {super.key, required this.label, required this.id, this.custom = false});
 
   @override
   State<McpServiceRow> createState() => _McpServiceRowState();
@@ -134,8 +136,7 @@ class _McpServiceRowState extends State<McpServiceRow> {
     final AppColors c = AppColors.of(context);
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
-      padding:
-          const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: _rowDecor(c),
       child: Row(
         children: [
@@ -143,8 +144,7 @@ class _McpServiceRowState extends State<McpServiceRow> {
           const SizedBox(width: 10),
           Expanded(
             child: Text(widget.label,
-                style: TextStyle(
-                    fontSize: 15, color: c.textPrimary)),
+                style: TextStyle(fontSize: 15, color: c.textPrimary)),
           ),
           if (widget.custom)
             GestureDetector(
@@ -154,8 +154,7 @@ class _McpServiceRowState extends State<McpServiceRow> {
               },
               child: Padding(
                 padding: const EdgeInsets.all(6),
-                child: Icon(Icons.delete_outline,
-                    size: 18, color: c.pdfRed),
+                child: Icon(Icons.delete_outline, size: 18, color: c.pdfRed),
               ),
             ),
           Switch.adaptive(

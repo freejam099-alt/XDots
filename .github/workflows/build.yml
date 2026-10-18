@@ -34,6 +34,8 @@ jobs:
           fi
           exit $STATUS
 
+      - name: Tests
+        run: flutter test --no-pub
       - name: Analyze
         run: |
           set +e
@@ -51,7 +53,7 @@ jobs:
           exit $STATUS
 
   build:
-    name: Build release APK (arm64)
+    name: Build Android APK (arm64)
     runs-on: ubuntu-latest
     needs: analyze
     steps:
@@ -74,10 +76,32 @@ jobs:
       - name: Pub get
         run: flutter pub get
 
-      - name: Build APK release (arm64-v8a)
+      - name: Configure signing and build mode
+        id: signing
+        env:
+          KEYSTORE_BASE64: ${{ secrets.XDOTS_KEYSTORE_BASE64 }}
+          XDOTS_STORE_PASSWORD: ${{ secrets.XDOTS_STORE_PASSWORD }}
+          XDOTS_KEY_ALIAS: ${{ secrets.XDOTS_KEY_ALIAS }}
+          XDOTS_KEY_PASSWORD: ${{ secrets.XDOTS_KEY_PASSWORD }}
+        run: |
+          if [ -n "$KEYSTORE_BASE64" ] && [ -n "$XDOTS_STORE_PASSWORD" ] && [ -n "$XDOTS_KEY_ALIAS" ] && [ -n "$XDOTS_KEY_PASSWORD" ]; then
+            umask 077
+            printf '%s' "$KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/xdots-release.jks"
+            echo "XDOTS_KEYSTORE_PATH=$RUNNER_TEMP/xdots-release.jks" >> "$GITHUB_ENV"
+            echo "mode=release" >> "$GITHUB_OUTPUT"
+          else
+            echo "mode=debug" >> "$GITHUB_OUTPUT"
+            echo "::notice::Release signing is not configured; building a debug-signed preview, not a production release."
+          fi
+      - name: Build APK (arm64-v8a)
+        env:
+          XDOTS_STORE_PASSWORD: ${{ secrets.XDOTS_STORE_PASSWORD }}
+          XDOTS_KEY_ALIAS: ${{ secrets.XDOTS_KEY_ALIAS }}
+          XDOTS_KEY_PASSWORD: ${{ secrets.XDOTS_KEY_PASSWORD }}
+          BUILD_MODE: ${{ steps.signing.outputs.mode }}
         run: |
           set +e
-          flutter build apk --release --target-platform android-arm64 > build.txt 2>&1
+          flutter build apk --"$BUILD_MODE" --target-platform android-arm64 > build.txt 2>&1
           STATUS=$?
           tail -n 120 build.txt
           if [ $STATUS -ne 0 ]; then
@@ -93,6 +117,6 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: xdots-arm64-release
-          path: build/app/outputs/flutter-apk/app-release.apk
+          name: xdots-arm64-${{ steps.signing.outputs.mode }}
+          path: build/app/outputs/flutter-apk/app-${{ steps.signing.outputs.mode }}.apk
           retention-days: 14

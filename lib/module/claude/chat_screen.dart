@@ -64,6 +64,24 @@ class ChatUiController {
 
   void finishAiMessage() => _state?._finishAiMessage();
 
+  /// Backend wajib menunggu hasil ini sebelum menjalankan aksi sensitif.
+  /// Tanpa layar aktif, permintaan ditolak (fail closed).
+  Future<bool> requestApproval(
+          {required String requestId,
+          required String summary,
+          String? domain,
+          String? total,
+          String? actionUrl,
+          String? previewImage}) =>
+      _state?._requestApproval(
+          requestId: requestId,
+          summary: summary,
+          domain: domain,
+          total: total,
+          actionUrl: actionUrl,
+          previewImage: previewImage) ??
+      Future.value(false);
+
   void clear() => _state?._clearAll();
 }
 
@@ -77,6 +95,7 @@ class ClaudeChatScreen extends StatefulWidget {
   final int navIndex;
   final ValueChanged<int> onNavTap;
   final bool embedded;
+
   /// Keyboard sedang terbuka (diatur oleh HomePage).
   final bool keyboardOpen;
   final bool hideInputBar;
@@ -103,11 +122,58 @@ class _ClaudeChatScreenState extends State<ClaudeChatScreen> {
   final GlobalKey<SliverAnimatedListState> _listKey =
       GlobalKey<SliverAnimatedListState>();
   final ScrollController _scrollController = ScrollController();
-  final List<ChatMsg> _messages = List.of(kDummyMessages);
+  final List<ChatMsg> _messages = List.of(kInitialMessages);
 
   int? _editingIndex;
-  // Flag typing untuk typing indicator AI (streaming nyata via controller).
-  final bool _typing = false;
+  final Map<String, Completer<bool>> _approvals = {};
+
+  Future<bool> _requestApproval(
+      {required String requestId,
+      required String summary,
+      String? domain,
+      String? total,
+      String? actionUrl,
+      String? previewImage}) {
+    if (!mounted ||
+        requestId.isEmpty ||
+        summary.trim().isEmpty ||
+        _messages.any((m) => m.requestId == requestId))
+      return Future.value(false);
+    final Completer<bool> completer = Completer<bool>();
+    _approvals[requestId] = completer;
+    _insertMessage(ChatMsg(
+        isUser: false,
+        type: MessageType.checkout,
+        text: summary,
+        requestId: requestId,
+        domain: domain,
+        total: total,
+        actionUrl: actionUrl,
+        previewImage: previewImage));
+    return completer.future;
+  }
+
+  void _resolveApproval(String requestId, bool allow) {
+    final Completer<bool>? request = _approvals.remove(requestId);
+    if (request == null || request.isCompleted) return;
+    setState(() {
+      final int i = _messages.indexWhere((m) => m.requestId == requestId);
+      if (i >= 0)
+        _messages[i] = _messages[i].copyWith(
+            approvalStatus:
+                allow ? ApprovalStatus.approved : ApprovalStatus.denied);
+    });
+    request.complete(allow);
+  }
+
+  void _cancelApprovals() {
+    for (final Completer<bool> request in _approvals.values) {
+      if (!request.isCompleted) request.complete(false);
+    }
+    _approvals.clear();
+  }
+
+  bool _activeRun(int id) => mounted && id == _runId;
 
   // Status panggilan AI.
   final ValueNotifier<String> _streamNotifier = ValueNotifier<String>('');
@@ -138,7 +204,20 @@ class _ClaudeChatScreenState extends State<ClaudeChatScreen> {
   }
 
   @override
+  void didUpdateWidget(covariant ClaudeChatScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.controller != widget.controller) {
+      if (oldWidget.controller?._state == this)
+        oldWidget.controller?._state = null;
+      _cancelApprovals();
+      widget.controller?._state = this;
+    }
+  }
+
+  @override
   void dispose() {
+    _runId++;
+    _cancelApprovals();
     if (widget.controller?._state == this) {
       widget.controller?._state = null;
     }
@@ -153,7 +232,8 @@ class _ClaudeChatScreenState extends State<ClaudeChatScreen> {
   // -- API untuk controller ---------------------------------------------
 
   void _insertMessage(ChatMsg message) {
-    _messages.add(message);
+    if (!mounted) return;
+    setState(() => _messages.add(message));
     _listKey.currentState?.insertItem(
       _messages.length - 1,
       duration: _kItemDuration,
@@ -164,6 +244,7 @@ class _ClaudeChatScreenState extends State<ClaudeChatScreen> {
   /// Token digabung ±45 ms: hanya bubble streaming yang dibangun ulang
   /// (bukan seluruh list) sehingga scroll tetap mulus.
   void _appendToken(String token) {
+    if (!mounted) return;
     _streamBuf += token;
     if (!_streaming) setState(() => _streaming = true);
     _flushTimer ??= Timer(const Duration(milliseconds: 45), () {
@@ -234,8 +315,10 @@ class _ClaudeChatScreenState extends State<ClaudeChatScreen> {
   }
 
   int _lastGenIndex() {
-    return _messages.lastIndexWhere(
-        (m) => m.type == MessageType.gen && m.genPhase < GenPhase.done.index);
+    return _messages.lastIndexWhere((m) =>
+        m.type == MessageType.gen &&
+        m.toolStatus == ToolStatus.running &&
+        m.genPhase < GenPhase.done.index);
   }
 
   void _genStart(bool video) {
@@ -286,6 +369,7 @@ class _ClaudeChatScreenState extends State<ClaudeChatScreen> {
   }
 
   void _clearAll() {
+    _cancelApprovals();
     final List<ChatMsg> removed = List.of(_messages);
     _messages.clear();
     for (int i = removed.length - 1; i >= 0; i--) {
@@ -339,9 +423,10 @@ class _ClaudeChatScreenState extends State<ClaudeChatScreen> {
     final List<ChatMsg>? msgs = await openHistory(context);
     if (msgs == null || !mounted) return;
     _clearAll();
+    final int epoch = _epoch;
     // Masukkan satu per satu agar animasi entrance ikut main.
     for (final ChatMsg m in msgs) {
-      if (!mounted) break;
+      if (!mounted || epoch != _epoch) break;
       _insertMessage(m);
       await Future.delayed(const Duration(milliseconds: 30));
     }
@@ -351,8 +436,7 @@ class _ClaudeChatScreenState extends State<ClaudeChatScreen> {
 
   void _send(String v) {
     final String text = v.trim();
-    final List<ChatAttachment> picked =
-        List.of(_controller.attachments.value);
+    final List<ChatAttachment> picked = List.of(_controller.attachments.value);
     if (text.isEmpty && picked.isEmpty) return;
     _controller.clear();
     _controller.clearAttachments();
@@ -363,8 +447,7 @@ class _ClaudeChatScreenState extends State<ClaudeChatScreen> {
         text: text,
         attachments: [
           for (final ChatAttachment a in picked)
-            MsgAttachment(
-                kind: a.kind.index, path: a.path, name: a.name),
+            MsgAttachment(kind: a.kind.index, path: a.path, name: a.name),
         ],
       ),
     );
@@ -413,6 +496,7 @@ class _ClaudeChatScreenState extends State<ClaudeChatScreen> {
       setState(() => _editingIndex = null);
     }
     final ChatMsg removed = _messages[index];
+    if (removed.requestId != null) _resolveApproval(removed.requestId!, false);
     _listKey.currentState?.removeItem(
       index,
       (context, animation) => _transition(
@@ -433,7 +517,11 @@ class _ClaudeChatScreenState extends State<ClaudeChatScreen> {
     if (index < 0 || index >= _messages.length) return;
     final ChatMsg m = _messages[index];
     _insertMessage(
-      ChatMsg(isUser: true, type: MessageType.text, text: m.text),
+      ChatMsg(
+          isUser: true,
+          type: MessageType.text,
+          text: m.text,
+          attachments: m.attachments),
     );
     _runAi();
   }
@@ -446,9 +534,7 @@ class _ClaudeChatScreenState extends State<ClaudeChatScreen> {
 
   void _saveEdit() {
     final int? index = _editingIndex;
-    if (index == null ||
-        index < 0 ||
-        index >= _messages.length) {
+    if (index == null || index < 0 || index >= _messages.length) {
       setState(() => _editingIndex = null);
       return;
     }
@@ -482,19 +568,22 @@ class _ClaudeChatScreenState extends State<ClaudeChatScreen> {
 
   // -- AI ------------------------------------------------------------------
 
-  void _finishToolWithResult(String name, String result) {
+  void _finishToolWithResult(String name, String result,
+      {bool failed = false}) {
     final int i = _messages.lastIndexWhere((m) =>
         m.type == MessageType.tool &&
         m.toolName == name &&
         m.toolStatus == ToolStatus.running);
     if (i < 0) return;
     setState(() {
-      _messages[i] = _messages[i]
-          .copyWith(toolStatus: ToolStatus.done, text: result);
+      _messages[i] = _messages[i].copyWith(
+          toolStatus: failed ? ToolStatus.failed : ToolStatus.done,
+          text: result);
     });
   }
 
-  void _noteTool(String name, String? detail, String result) {
+  void _noteTool(String name, String? detail, String result,
+      {bool failed = false}) {
     _insertMessage(
       ChatMsg(
         isUser: false,
@@ -502,7 +591,7 @@ class _ClaudeChatScreenState extends State<ClaudeChatScreen> {
         text: result,
         toolName: name,
         toolDetail: detail,
-        toolStatus: ToolStatus.done,
+        toolStatus: failed ? ToolStatus.failed : ToolStatus.done,
       ),
     );
   }
@@ -586,9 +675,14 @@ class _ClaudeChatScreenState extends State<ClaudeChatScreen> {
       return;
     }
     final MuseToolCall? call = MuseAi.parseTool(full);
-    if (call != null && depth < 2) {
-      await _runTool(call, depth, id);
-      return;
+    if (call != null) {
+      if (depth < 2) {
+        await _runTool(call, depth, id);
+        return;
+      }
+      _noteTool(call.name, call.arg,
+          'Batas tindakan beruntun tercapai. Kirim pesan baru untuk melanjutkan.',
+          failed: true);
     }
     _endRun();
   }
@@ -604,32 +698,33 @@ class _ClaudeChatScreenState extends State<ClaudeChatScreen> {
         n == 'tools_use';
     bool continueAi = true;
     if (!known) {
-      _noteTool(n, null, 'Tool tidak dikenal atau belum tersedia.');
+      _noteTool(n, null, 'Tool tidak dikenal atau belum tersedia.',
+          failed: true);
     } else if (exa
         ? !MuseAi.exaOn()
         : dot
             ? !MuseAi.dotOn()
             : !ModelStore.toolEnabled(n)) {
-      _noteTool(n, null, 'Tool $n dinonaktifkan pengguna.');
+      _noteTool(n, null, 'Tool $n dinonaktifkan pengguna.', failed: true);
     } else {
       switch (n) {
         case 'create_image':
           continueAi = false;
-          await _toolCreateMedia(false, call.arg, call.ratio);
+          await _toolCreateMedia(false, call.arg, call.ratio, id);
           break;
         case 'create_video':
           continueAi = false;
-          await _toolCreateMedia(true, call.arg, call.ratio);
+          await _toolCreateMedia(true, call.arg, call.ratio, id);
           break;
         case 'tools_use':
           _noteTool('tools_use', null, MuseAi.toolsOverview());
           break;
         case 'dot_search':
         case 'dot_read':
-          await _toolDot(n, call.arg);
+          await _toolDot(n, call.arg, id, topic: call.ratio);
           break;
         default:
-          await _toolExa(n, call.arg);
+          await _toolExa(n, call.arg, id);
       }
     }
     if (!mounted || id != _runId) return;
@@ -640,85 +735,114 @@ class _ClaudeChatScreenState extends State<ClaudeChatScreen> {
     }
   }
 
-  /// Alur gambar/video: berpikir -> prompt -> kotak rasio tumbuh dari
-  /// sudut AI -> membuat (gambar: kilau, video: border beam) -> hasil.
+  /// Fase mengikuti permintaan sebenarnya, tanpa jeda progres buatan.
   Future<void> _toolCreateMedia(
-      bool video, String prompt, String ratio) async {
-    final String p = prompt.isEmpty
-        ? (video ? 'a calm cinematic landscape' : 'abstract colorful art')
-        : prompt;
-    final String r = kGenRatios.containsKey(ratio)
-        ? ratio
-        : (video ? '16:9' : '1:1');
+      bool video, String prompt, String ratio, int id) async {
+    if (prompt.trim().isEmpty) {
+      _noteTool(video ? 'create_video' : 'create_image', null,
+          'Prompt tidak boleh kosong.',
+          failed: true);
+      return;
+    }
+    final String r =
+        kGenRatios.containsKey(ratio) ? ratio : (video ? '16:9' : '1:1');
     _genStart(video);
-    // Permintaan ke server berjalan paralel dengan animasi.
-    final Future<MapEntry<String?, Object?>> job =
-        (video ? MuseAi.generateVideo(p) : MuseAi.generateImage(p, ratio: r))
-            .then((String v) => MapEntry<String?, Object?>(v, null))
-            .catchError(
-                (Object e) => MapEntry<String?, Object?>(null, e));
-    await Future<void>.delayed(const Duration(milliseconds: 700));
-    if (!mounted) return;
-    _genPrompt(p);
-    await Future<void>.delayed(const Duration(milliseconds: 1100));
-    if (!mounted) return;
-    _genUpdate((m) =>
-        m.copyWith(genRatio: r, genPhase: GenPhase.ratio.index));
-    await Future<void>.delayed(const Duration(milliseconds: 1100));
-    if (!mounted) return;
-    _genSetPhase(GenPhase.generating.index);
-    final MapEntry<String?, Object?> res = await job;
-    if (!mounted) return;
-    if (res.key != null) {
+    _genPrompt(prompt);
+    _genUpdate(
+        (m) => m.copyWith(genRatio: r, genPhase: GenPhase.generating.index));
+    try {
+      final String result = video
+          ? await MuseAi.generateVideo(prompt)
+          : await MuseAi.generateImage(prompt, ratio: r);
+      if (!_activeRun(id)) return;
       _genUpdate((m) => m.copyWith(
-          text: '${video ? 'Video' : 'Gambar'} berhasil dibuat dan sudah '
-              'ditampilkan ke pengguna. Prompt: $p'));
-      _genSetResult(res.key!);
-    } else {
+          text:
+              '${video ? 'Video' : 'Gambar'} berhasil dibuat. Prompt: $prompt'));
+      _genSetResult(result);
+    } catch (e) {
+      if (!_activeRun(id)) return;
       final int gi = _lastGenIndex();
       if (gi >= 0) _delete(gi);
       _insertMessage(ChatMsg(
-        isUser: false,
-        type: MessageType.text,
-        text: '⚠️ Gagal membuat ${video ? 'video' : 'gambar'}: '
-            '${MuseAi.friendlyError(res.value ?? 'tidak diketahui')}',
-      ));
+          isUser: false,
+          type: MessageType.text,
+          text: '⚠️ Gagal membuat ${video ? 'video' : 'gambar'}: '
+              '${MuseAi.friendlyError(e)}'));
     }
   }
 
-  Future<void> _toolDot(String name, String arg) async {
+  Future<void> _toolDot(String name, String arg, int id,
+      {String topic = ''}) async {
     _toolCall(name, arg);
     String result;
+    bool failed = false;
     try {
       result = name == 'dot_read'
           ? await MuseAi.dotRead(arg)
-          : await MuseAi.dotSearch(arg);
+          : await MuseAi.dotSearch(arg, topic: topic.isEmpty ? null : topic);
+      if (!_activeRun(id)) return;
       if (name == 'dot_search') {
         _pendingSources = MuseAi.extractSources(result);
-        _pendingGallery =
-            DotBrowser.lastShowImages ? List<String>.of(DotBrowser.lastImages) : <String>[];
+        _pendingGallery = DotBrowser.lastShowImages
+            ? List<String>.of(DotBrowser.lastImages)
+            : <String>[];
       }
     } catch (e) {
+      failed = true;
       result = 'Gagal memanggil $name: ${MuseAi.friendlyError(e)}';
     }
-    if (!mounted) return;
-    _finishToolWithResult(name, result);
+    if (!_activeRun(id)) return;
+    _finishToolWithResult(name, result, failed: failed);
   }
 
-  Future<void> _toolExa(String name, String arg) async {
+  Future<void> _toolExa(String name, String arg, int id) async {
     _toolCall(name, arg);
     String result;
+    bool failed = false;
     try {
       result = await MuseAi.exaCall(name, arg);
     } catch (e) {
+      failed = true;
       result = 'Gagal memanggil $name: ${MuseAi.friendlyError(e)}';
     }
-    if (!mounted) return;
+    if (!_activeRun(id)) return;
     if (name == 'web_search_exa') {
       _pendingSources = MuseAi.extractSources(result);
     }
-    _finishToolWithResult(name, result);
+    _finishToolWithResult(name, result, failed: failed);
   }
+
+  AgentActivity get _activity {
+    if (_approvals.isNotEmpty) return AgentActivity.approval;
+    for (final ChatMsg message in _messages.reversed) {
+      if (message.type == MessageType.tool &&
+          message.toolStatus == ToolStatus.running) {
+        final String name = message.toolName ?? '';
+        return name.startsWith('dot_') || name.startsWith('web_')
+            ? AgentActivity.browsing
+            : AgentActivity.tool;
+      }
+      if (message.type == MessageType.gen &&
+          message.toolStatus == ToolStatus.running &&
+          message.genPhase < GenPhase.done.index) {
+        return AgentActivity.tool;
+      }
+    }
+    if (_aiBusy || _streaming) return AgentActivity.thinking;
+    if (_messages.isNotEmpty &&
+        (_messages.last.toolStatus == ToolStatus.failed ||
+            _messages.last.text.startsWith('⚠️'))) return AgentActivity.error;
+    return AgentActivity.idle;
+  }
+
+  String? get _activityLabel => switch (_activity) {
+        AgentActivity.approval => 'Menunggu persetujuan',
+        AgentActivity.browsing => 'Menelusuri web…',
+        AgentActivity.tool => 'Menjalankan tindakan…',
+        AgentActivity.thinking => 'Sedang merespons…',
+        AgentActivity.error => 'Perlu perhatian',
+        AgentActivity.idle => null,
+      };
 
   // -- Build --------------------------------------------------------------
 
@@ -726,9 +850,10 @@ class _ClaudeChatScreenState extends State<ClaudeChatScreen> {
   Widget build(BuildContext context) {
     applySystemUi(context);
     final double bottomSafe = MediaQuery.of(context).padding.bottom;
-    final bool kbOpen = widget.keyboardOpen;
-    final Widget content = DefaultTextStyle(
-      style: const TextStyle(fontFamily: AppDims.fontFamily),
+    final bool kbOpen =
+        widget.keyboardOpen || MediaQuery.viewInsetsOf(context).bottom > 0;
+    final Widget content = DefaultTextStyle.merge(
+      style: TextStyle(fontFamily: AppDims.fontFamily, color: c.textPrimary),
       child: Stack(
         fit: StackFit.expand,
         children: [
@@ -750,65 +875,62 @@ class _ClaudeChatScreenState extends State<ClaudeChatScreen> {
                     horizontal: AppDims.screenPaddingH),
                 child: Column(
                   children: [
-                  const SizedBox(height: 8),
-                  MuseHeader(
-                    onMenuTap: _openHistory,
-                    onNewChatTap: _newChat,
-                    onDeleteMessages: _clearAll,
-                  ),
-                  const SizedBox(height: 12),
-                  Expanded(
-                    child: Stack(
-                      children: [
-                        // List memanjang sampai dasar area: teks terlihat
-                        // di sela/bawah input bar (input tetap solid).
-                        Positioned.fill(child: _buildList()),
-                        if (!widget.hideInputBar)
-                          Positioned(
-                            left: 0,
-                            right: 0,
-                            bottom: widget.keyboardOpen
-                                ? 8
-                                : AppDims.inputGapToNav,
-                            child: NotificationListener<
-                                SizeChangedLayoutNotification>(
-                              onNotification: (_) {
-                                _measureInput();
-                                return false;
-                              },
-                              child: SizeChangedLayoutNotifier(
-                                child: KeyedSubtree(
-                                  key: _inputKey,
-                                  child: ChatInputBar(
-                                    controller: _controller,
-                                    onSubmitted: _send,
-                                    plusIcon: const PlusIcon32(),
-                                    micIcon:
-                                        const VoiceVectorIcon(size: 22),
+                    const SizedBox(height: 8),
+                    MuseHeader(
+                      activity: _activity,
+                      statusLabel: _activityLabel,
+                      onMenuTap: _openHistory,
+                      onNewChatTap: _newChat,
+                      onDeleteMessages: _clearAll,
+                    ),
+                    const SizedBox(height: 12),
+                    Expanded(
+                      child: Stack(
+                        children: [
+                          // List memanjang sampai dasar area: teks terlihat
+                          // di sela/bawah input bar (input tetap solid).
+                          Positioned.fill(child: _buildList()),
+                          if (!widget.hideInputBar)
+                            Positioned(
+                              left: 0,
+                              right: 0,
+                              bottom: kbOpen ? 8 : AppDims.inputGapToNav,
+                              child: NotificationListener<
+                                  SizeChangedLayoutNotification>(
+                                onNotification: (_) {
+                                  _measureInput();
+                                  return false;
+                                },
+                                child: SizeChangedLayoutNotifier(
+                                  child: KeyedSubtree(
+                                    key: _inputKey,
+                                    child: ChatInputBar(
+                                      controller: _controller,
+                                      onSubmitted: _send,
+                                      plusIcon: const PlusIcon32(),
+                                      micIcon: const VoiceVectorIcon(size: 22),
+                                    ),
                                   ),
                                 ),
                               ),
                             ),
-                          ),
-                      ],
+                        ],
+                      ),
                     ),
-                  ),
-                  // Navbar disembunyikan saat keyboard terbuka agar
-                  // tidak overflow / tertutup keyboard.
-                  if (!widget.embedded && !kbOpen)
-                    FloatingPillNavbar(
-                      icons: widget.navIcons,
-                      currentIndex: widget.navIndex,
-                      onTap: widget.onNavTap,
-                    ),
-                  if (!widget.embedded && !kbOpen)
-                    SizedBox(
-                        height:
-                            AppDims.pillBottomGap + bottomSafe),
-                ],
+                    // Navbar disembunyikan saat keyboard terbuka agar
+                    // tidak overflow / tertutup keyboard.
+                    if (!widget.embedded && !kbOpen)
+                      FloatingPillNavbar(
+                        icons: widget.navIcons,
+                        currentIndex: widget.navIndex,
+                        onTap: widget.onNavTap,
+                      ),
+                    if (!widget.embedded && !kbOpen)
+                      SizedBox(height: AppDims.pillBottomGap + bottomSafe),
+                  ],
+                ),
               ),
             ),
-          ),
           ),
         ],
       ),
@@ -831,6 +953,7 @@ class _ClaudeChatScreenState extends State<ClaudeChatScreen> {
         ((_messages.last.type == MessageType.tool &&
                 _messages.last.toolStatus == ToolStatus.running) ||
             (_messages.last.type == MessageType.gen &&
+                _messages.last.toolStatus == ToolStatus.running &&
                 _messages.last.genPhase < GenPhase.done.index));
     if (_aiBusy && !cardBusy) {
       return const Padding(
@@ -845,12 +968,10 @@ class _ClaudeChatScreenState extends State<ClaudeChatScreen> {
     // SliverAnimatedList selalu mounted (tidak di-swap) agar GlobalKey,
     // ScrollController, dan animasi remove tetap valid; empty state
     // hanya overlay di atasnya.
-    final bool empty =
-        _messages.isEmpty && !_streaming && !_typing && !_aiBusy;
+    final bool empty = _messages.isEmpty && !_streaming && !_aiBusy;
     final double bottomPad = (widget.hideInputBar
             ? 0.0
-            : _inputH +
-                (widget.keyboardOpen ? 8.0 : AppDims.inputGapToNav)) +
+            : _inputH + (widget.keyboardOpen ? 8.0 : AppDims.inputGapToNav)) +
         12.0;
     return Stack(
       children: [
@@ -924,12 +1045,10 @@ class _ClaudeChatScreenState extends State<ClaudeChatScreen> {
                 maxWidth: MediaQuery.of(context).size.width *
                     AppDims.bubbleMaxWidthFactor,
               ),
-              padding: const EdgeInsets.symmetric(
-                  horizontal: 16, vertical: 12),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               decoration: BoxDecoration(
                 color: c.aiBubble,
-                borderRadius:
-                    BorderRadius.circular(AppDims.bubbleRadius),
+                borderRadius: BorderRadius.circular(AppDims.bubbleRadius),
               ),
               child: ValueListenableBuilder<String>(
                 valueListenable: _streamNotifier,
@@ -951,31 +1070,55 @@ class _ClaudeChatScreenState extends State<ClaudeChatScreen> {
     Widget content;
     switch (m.type) {
       case MessageType.text:
-        content = m.isUser
-            ? _userBubble(m, index)
-            : _aiBubble(m, index);
+        content = m.isUser ? _userBubble(m, index) : _aiBubble(m, index);
         break;
       case MessageType.file:
         content = m.isUser
             ? _userBubble(m, index)
-            : const FileCard(title: 'Attachment');
+            : FileCard(title: m.text, attachments: m.attachments);
         break;
       case MessageType.checkout:
+        final bool active =
+            m.requestId != null && _approvals.containsKey(m.requestId);
         content = CheckoutCard(
-            domain: m.domain ?? 'store.com',
-            total: m.total ?? '\$80.00');
+            domain: m.domain,
+            total: m.total,
+            summary: m.text,
+            actionUrl: m.actionUrl,
+            previewImage: m.previewImage,
+            status: active
+                ? m.approvalStatus
+                : m.approvalStatus == ApprovalStatus.pending
+                    ? ApprovalStatus.expired
+                    : m.approvalStatus,
+            onAllow: active ? () => _resolveApproval(m.requestId!, true) : null,
+            onDeny:
+                active ? () => _resolveApproval(m.requestId!, false) : null);
         break;
       case MessageType.browser:
-        content = const BrowserCard();
+        content = BrowserCard(
+            detail: m.text, url: m.actionUrl, previewImage: m.previewImage);
         break;
       case MessageType.tool:
         content = ToolCallCard(
           toolName: m.toolName ?? 'tools_use',
           detail: m.toolDetail,
           status: m.toolStatus,
+          result: m.text,
         );
         break;
       case MessageType.gen:
+        if (m.toolStatus == ToolStatus.failed ||
+            (m.genPhase < GenPhase.done.index &&
+                m.toolStatus != ToolStatus.running)) {
+          content = ToolCallCard(
+              toolName: m.toolName ?? 'create_image',
+              status: ToolStatus.failed,
+              result: m.text.isEmpty
+                  ? 'Pekerjaan terputus. Hasil belum tersedia.'
+                  : m.text);
+          break;
+        }
         content = GenCard(
           isVideo: m.genKind == 1,
           phase: GenPhase
@@ -983,7 +1126,12 @@ class _ClaudeChatScreenState extends State<ClaudeChatScreen> {
           prompt: m.genPrompt ?? '',
           ratio: m.genRatio,
           result: m.genResult,
-          onRatioPick: (r) => _genSetRatio(r),
+          onRatioPick: (r) {
+            if (index < 0 ||
+                index >= _messages.length ||
+                m.genPhase >= GenPhase.generating.index) return;
+            setState(() => _messages[index] = m.copyWith(genRatio: r));
+          },
         );
         break;
     }
@@ -1003,8 +1151,8 @@ class _ClaudeChatScreenState extends State<ClaudeChatScreen> {
   }
 
   Widget _userBubble(ChatMsg m, int index) {
-    final double maxW = MediaQuery.of(context).size.width *
-        AppDims.bubbleMaxWidthFactor;
+    final double maxW =
+        MediaQuery.of(context).size.width * AppDims.bubbleMaxWidthFactor;
     return Row(
       mainAxisAlignment: MainAxisAlignment.end,
       crossAxisAlignment: CrossAxisAlignment.end,
@@ -1016,12 +1164,10 @@ class _ClaudeChatScreenState extends State<ClaudeChatScreen> {
             child: Container(
               key: ValueKey('user-${m.text.hashCode}'),
               constraints: BoxConstraints(maxWidth: maxW),
-              padding: const EdgeInsets.symmetric(
-                  horizontal: 16, vertical: 12),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               decoration: BoxDecoration(
                 color: c.userBubble,
-                borderRadius:
-                    BorderRadius.circular(AppDims.bubbleRadius),
+                borderRadius: BorderRadius.circular(AppDims.bubbleRadius),
               ),
               // Teks + lampiran user (gambar/video/file).
               child: Column(
@@ -1037,7 +1183,10 @@ class _ClaudeChatScreenState extends State<ClaudeChatScreen> {
                         alignment: WrapAlignment.end,
                         children: [
                           for (final MsgAttachment a in m.attachments)
-                            _sentThumb(a),
+                            InkWell(
+                                onTap: () => showAttachmentPreview(context, a),
+                                borderRadius: BorderRadius.circular(12),
+                                child: _sentThumb(a)),
                         ],
                       ),
                     ),
@@ -1060,8 +1209,8 @@ class _ClaudeChatScreenState extends State<ClaudeChatScreen> {
   }
 
   Widget _aiBubble(ChatMsg m, int index) {
-    final double maxW = MediaQuery.of(context).size.width *
-        AppDims.bubbleMaxWidthFactor;
+    final double maxW =
+        MediaQuery.of(context).size.width * AppDims.bubbleMaxWidthFactor;
     return Row(
       mainAxisAlignment: MainAxisAlignment.start,
       crossAxisAlignment: CrossAxisAlignment.end,
@@ -1069,12 +1218,10 @@ class _ClaudeChatScreenState extends State<ClaudeChatScreen> {
         Flexible(
           child: Container(
             constraints: BoxConstraints(maxWidth: maxW),
-            padding: const EdgeInsets.symmetric(
-                horizontal: 16, vertical: 12),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             decoration: BoxDecoration(
               color: c.aiBubble,
-              borderRadius:
-                  BorderRadius.circular(AppDims.bubbleRadius),
+              borderRadius: BorderRadius.circular(AppDims.bubbleRadius),
             ),
             // AI: markdown + blok cerdas (link/gambar/video) + sumber web.
             child: Column(
@@ -1118,8 +1265,7 @@ class _ClaudeChatScreenState extends State<ClaudeChatScreen> {
               width: 80,
               height: 80,
               color: c.surfaceSoft,
-              child: Icon(Icons.broken_image_outlined,
-                  color: c.textMuted),
+              child: Icon(Icons.broken_image_outlined, color: c.textMuted),
             );
           },
         ),
@@ -1133,8 +1279,7 @@ class _ClaudeChatScreenState extends State<ClaudeChatScreen> {
           height: 80,
           color: c.textPrimary,
           child: const Center(
-            child:
-                Icon(Icons.play_arrow, color: Colors.white, size: 32),
+            child: Icon(Icons.play_arrow, color: Colors.white, size: 32),
           ),
         ),
       );
@@ -1173,8 +1318,7 @@ class _ClaudeChatScreenState extends State<ClaudeChatScreen> {
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
               color: c.userBubble,
-              borderRadius:
-                  BorderRadius.circular(AppDims.bubbleRadius),
+              borderRadius: BorderRadius.circular(AppDims.bubbleRadius),
             ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -1202,21 +1346,17 @@ class _ClaudeChatScreenState extends State<ClaudeChatScreen> {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     GestureDetector(
-                      onTap: () =>
-                          setState(() => _editingIndex = null),
+                      onTap: () => setState(() => _editingIndex = null),
                       child: Container(
                         height: 40,
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 18),
+                        padding: const EdgeInsets.symmetric(horizontal: 18),
                         decoration: BoxDecoration(
                           color: c.btnSecondary,
-                          borderRadius:
-                              BorderRadius.circular(999),
+                          borderRadius: BorderRadius.circular(999),
                         ),
                         child: Center(
                           child: Text('Batal',
-                              style: TextStyle(
-                                  color: c.textPrimary)),
+                              style: TextStyle(color: c.textPrimary)),
                         ),
                       ),
                     ),
@@ -1225,22 +1365,17 @@ class _ClaudeChatScreenState extends State<ClaudeChatScreen> {
                       onTap: _saveEdit,
                       child: Container(
                         height: 40,
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 18),
+                        padding: const EdgeInsets.symmetric(horizontal: 18),
                         decoration: BoxDecoration(
-                          gradient: LinearGradient(colors: [
-                            c.accent,
-                            c.accentEnd
-                          ]),
-                          borderRadius:
-                              BorderRadius.circular(999),
+                          gradient:
+                              LinearGradient(colors: [c.accent, c.accentEnd]),
+                          borderRadius: BorderRadius.circular(999),
                         ),
                         child: Center(
                           child: Text('Simpan',
                               style: TextStyle(
                                   color: Colors.white,
-                                  fontWeight:
-                                      FontWeight.w600)),
+                                  fontWeight: FontWeight.w600)),
                         ),
                       ),
                     ),

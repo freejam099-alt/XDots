@@ -87,7 +87,9 @@ class DotBrowser {
       caseSensitive: false);
   static final RegExp _newsRe = RegExp(
       r'\b(news|headlines?|breaking|current events?|berita|terbaru|'
-      r'terkini|latest (?:news|headlines)|what(?:' "'" r's|s| is) happening)\b',
+      r'terkini|latest (?:news|headlines)|what(?:'
+      "'"
+      r's|s| is) happening)\b',
       caseSensitive: false);
   static final RegExp _sportsRe = RegExp(
       r'\b(score(?:s|board)?|who won|final score|box score|standings|'
@@ -169,8 +171,17 @@ class DotBrowser {
         .trim();
     if (c.length < 2) return null;
     const Set<String> generic = {
-      'here', 'there', 'outside', 'home', 'local', 'the', 'a', 'an',
-      'sini', 'disini', 'di sini'
+      'here',
+      'there',
+      'outside',
+      'home',
+      'local',
+      'the',
+      'a',
+      'an',
+      'sini',
+      'disini',
+      'di sini'
     };
     if (generic.contains(c.toLowerCase())) return null;
     return c;
@@ -275,7 +286,10 @@ class DotBrowser {
 
   static String _uaFor(String url) {
     for (final String h in <String>[
-      'open-meteo.com', 'wttr.in', 'geojs.io', 'wikimedia.org',
+      'open-meteo.com',
+      'wttr.in',
+      'geojs.io',
+      'wikimedia.org',
       'wikipedia.org'
     ]) {
       if (url.contains(h)) return _appUa;
@@ -355,8 +369,7 @@ class DotBrowser {
     final Map<String, DotImage> images = <String, DotImage>{};
     for (final dynamic e in _arr(data['web'])) {
       final String url = _str(e, 'url');
-      final String title =
-          _str(e, 'title').isEmpty ? url : _str(e, 'title');
+      final String title = _str(e, 'title').isEmpty ? url : _str(e, 'title');
       if (url.isEmpty) continue;
       final String d = _str(e, 'description').isEmpty
           ? _str(e, 'markdown')
@@ -366,8 +379,7 @@ class DotBrowser {
     }
     for (final dynamic e in _arr(data['news'])) {
       final String url = _str(e, 'url');
-      final String title =
-          _str(e, 'title').isEmpty ? url : _str(e, 'title');
+      final String title = _str(e, 'title').isEmpty ? url : _str(e, 'title');
       if (url.isEmpty) continue;
       final String sn = _snippet(_str(e, 'snippet').isEmpty
           ? _str(e, 'description')
@@ -473,7 +485,8 @@ class DotBrowser {
       }
     }
     if (lat == null || lon == null) {
-      final dynamic g = _json(await _get('https://get.geojs.io/v1/ip/geo.json'));
+      final dynamic g =
+          _json(await _get('https://get.geojs.io/v1/ip/geo.json'));
       lat = double.tryParse(_str(g, 'latitude'));
       lon = double.tryParse(_str(g, 'longitude'));
       name = _str(g, 'city').isEmpty ? _str(g, 'region') : _str(g, 'city');
@@ -570,9 +583,8 @@ class DotBrowser {
   static Future<List<DotItem>> _googleNews(String query) async {
     final String primary = _acceptLang.split(',').first.trim();
     final String lang = primary.split('-').first;
-    final String region = primary.contains('-')
-        ? primary.split('-').last.toUpperCase()
-        : 'US';
+    final String region =
+        primary.contains('-') ? primary.split('-').last.toUpperCase() : 'US';
     final bool generic = RegExp(
             r"^(?:the |today'?s |latest |breaking )?(?:news|headlines|current events|berita)(?: today| now| hari ini)?[?.!]*$",
             caseSensitive: false)
@@ -622,12 +634,10 @@ class DotBrowser {
       if (e is Map) {
         final String title = _str(e, 'title');
         final String u = _str(e, 'url');
-        final String media = _str(e, 'media').isEmpty
-            ? _str(e, 'thumbnail')
-            : _str(e, 'media');
-        final String desc = _str(e, 'desc').isEmpty
-            ? _str(e, 'description')
-            : _str(e, 'desc');
+        final String media =
+            _str(e, 'media').isEmpty ? _str(e, 'thumbnail') : _str(e, 'media');
+        final String desc =
+            _str(e, 'desc').isEmpty ? _str(e, 'description') : _str(e, 'desc');
         final String date = _str(e, 'date');
         final String src =
             _str(e, 'source').isEmpty ? _str(e, 'domain') : _str(e, 'source');
@@ -696,14 +706,12 @@ class DotBrowser {
   static List<DotItem> _ddgLite(String html) {
     final List<RegExpMatch> rows = RegExp(
             r'''<a[^>]*rel="nofollow"[^>]*href="([^"]+)"[^>]*class=['"][^'"]*\bresult-link\b[^'"]*['"][^>]*>(.*?)</a>''',
-            caseSensitive: false,
-            dotAll: true)
+            caseSensitive: false, dotAll: true)
         .allMatches(html)
         .toList();
     final List<String> snips = RegExp(
             r'''<td[^>]*class=['"][^'"]*\bresult-snippet\b[^'"]*['"][^>]*>(.*?)</td>''',
-            caseSensitive: false,
-            dotAll: true)
+            caseSensitive: false, dotAll: true)
         .allMatches(html)
         .map((RegExpMatch m) => _clean(_tags(m.group(1) ?? '')))
         .toList();
@@ -714,8 +722,8 @@ class DotBrowser {
       if (url.isEmpty || title.isEmpty || url.contains('duckduckgo.com')) {
         continue;
       }
-      out.add(DotItem(title, url, i < snips.length ? snips[i] : '',
-          'DuckDuckGo'));
+      out.add(
+          DotItem(title, url, i < snips.length ? snips[i] : '', 'DuckDuckGo'));
     }
     return out;
   }
@@ -776,13 +784,15 @@ class DotBrowser {
         '&prop=imageinfo&iiprop=url|mime|extmetadata&iiurlwidth=1280&format=json'));
     final List<DotImage> out = <DotImage>[];
     for (final dynamic p in _obj(_obj(_obj(root)['query'])['pages']).values) {
-      final dynamic info =
-          _arr(p is Map ? p['imageinfo'] : null).isEmpty ? null : _arr(p['imageinfo']).first;
+      final dynamic info = _arr(p is Map ? p['imageinfo'] : null).isEmpty
+          ? null
+          : _arr(p['imageinfo']).first;
       if (info is! Map) continue;
       final String mime = _str(info, 'mime');
       if (mime.isNotEmpty && !mime.startsWith('image/')) continue;
-      final String url =
-          _str(info, 'url').isEmpty ? _str(info, 'thumburl') : _str(info, 'url');
+      final String url = _str(info, 'url').isEmpty
+          ? _str(info, 'thumburl')
+          : _str(info, 'url');
       if (!_usableImage(url)) continue;
       out.add(DotImage(url, _str(p, 'title').replaceFirst('File:', ''),
           _str(info, 'descriptionurl')));
@@ -796,10 +806,15 @@ class DotBrowser {
     if (body.length < 80) return null;
     if (body.startsWith('{') && body.contains('"code"')) return null;
     final String snip = body.length > 1800 ? body.substring(0, 1800) : body;
-    return _Fetch('Jina Search', items: [
-      DotItem('Ringkasan Jina',
-          'https://s.jina.ai/${Uri.encodeComponent(query)}', snip.trim(), 'Jina')
-    ], answer: snip.trim());
+    return _Fetch('Jina Search',
+        items: [
+          DotItem(
+              'Ringkasan Jina',
+              'https://s.jina.ai/${Uri.encodeComponent(query)}',
+              snip.trim(),
+              'Jina')
+        ],
+        answer: snip.trim());
   }
 
   static String _unwrapBing(String raw) {
@@ -851,9 +866,9 @@ class DotBrowser {
     final String html = await _get(
         'https://www.mojeek.com/search?q=${Uri.encodeQueryComponent(q)}');
     final List<DotItem> out = <DotItem>[];
-    for (final RegExpMatch m in RegExp(r'<li[^>]*>(.*?)</li>',
-            caseSensitive: false, dotAll: true)
-        .allMatches(html)) {
+    for (final RegExpMatch m
+        in RegExp(r'<li[^>]*>(.*?)</li>', caseSensitive: false, dotAll: true)
+            .allMatches(html)) {
       final String b = m.group(1)!;
       final RegExpMatch? a = RegExp(
               r'<a\b([^>]*\bclass="title"[^>]*)>(.*?)</a>',
@@ -865,11 +880,11 @@ class DotBrowser {
           RegExp(r'href="([^"]+)"').firstMatch(a.group(1)!)?.group(1);
       final String title = _clean(_tags(a.group(2)!));
       if (href == null || !href.startsWith('http') || title.isEmpty) continue;
-      final String sn = _clean(_tags(RegExp(r'<p class="s">(.*?)</p>',
-                  caseSensitive: false, dotAll: true)
-              .firstMatch(b)
-              ?.group(1) ??
-          ''));
+      final String sn = _clean(_tags(
+          RegExp(r'<p class="s">(.*?)</p>', caseSensitive: false, dotAll: true)
+                  .firstMatch(b)
+                  ?.group(1) ??
+              ''));
       out.add(DotItem(title, _unescape(href), sn, 'Mojeek'));
     }
     return out;
@@ -926,6 +941,8 @@ class DotBrowser {
   /// Pencarian utama. Melempar [DotBrowserException] bila tak ada hasil.
   static Future<String> search(String query,
       {String? topic, int size = 8}) async {
+    lastImages = <String>[];
+    lastShowImages = false;
     final String q = query.trim();
     if (q.isEmpty) throw const DotBrowserException('Kata kunci kosong.');
     final DotIntent intent = classify(q, topic);
@@ -952,8 +969,10 @@ class DotBrowser {
       final List<Object?> r = await Future.wait<Object?>(<Future<Object?>>[
         _backend<List<DotItem>>('GNews', () => _googleNews(q)),
         _backend<_Fetch>('Qwant News', () => _qwant('news', q, size)),
-        _backend<String>('DDG News',
-            () => _get('https://html.duckduckgo.com/html/?q=${Uri.encodeQueryComponent(q)}&iar=news')),
+        _backend<String>(
+            'DDG News',
+            () => _get(
+                'https://html.duckduckgo.com/html/?q=${Uri.encodeQueryComponent(q)}&iar=news')),
       ]);
       return <_Fetch>[
         _Fetch('Google News RSS', items: (r[0] as List<DotItem>?) ?? const []),
@@ -969,8 +988,8 @@ class DotBrowser {
           intent == DotIntent.encyclopedia || intent == DotIntent.general;
       final List<Object?> r = await Future.wait<Object?>(<Future<Object?>>[
         _backend<List<DotItem>>('Bing', () => _bing(q)),
-        _backend<List<DotItem>>('DDG', () => _ddgAll(q),
-            const Duration(seconds: 14)),
+        _backend<List<DotItem>>(
+            'DDG', () => _ddgAll(q), const Duration(seconds: 14)),
         _backend<List<DotItem>>('Mojeek', () => _mojeek(q)),
         _backend<_Fetch>('Qwant Web', () => _qwant('web', q, size)),
         ency
@@ -1013,9 +1032,13 @@ class DotBrowser {
       ].where((_Fetch f) => f.useful).toList();
     }
 
-    final List<List<_Fetch>> all = await Future.wait<List<_Fetch>>(
-        <Future<List<_Fetch>>>[
-      firecrawlJob(), weatherJob(), newsJob(), webJob(), imageJob()
+    final List<List<_Fetch>> all =
+        await Future.wait<List<_Fetch>>(<Future<List<_Fetch>>>[
+      firecrawlJob(),
+      weatherJob(),
+      newsJob(),
+      webJob(),
+      imageJob()
     ]);
     final List<_Fetch> fetches = all.expand((List<_Fetch> e) => e).toList();
     return _merge(q, intent, size, fetches);
@@ -1060,7 +1083,6 @@ class DotBrowser {
           .map((MapEntry<String, DotItem> e) => e.value),
     ];
     final List<DotItem> items = ranked.take(size < 1 ? 1 : size).toList();
-    final List<DotImage> imgs = images.values.take(6).toList();
     final bool hasLive = live.isNotEmpty ||
         (intent == DotIntent.weather && (answer ?? '').isNotEmpty);
     final bool liveIntent = intent == DotIntent.weather ||
@@ -1072,7 +1094,8 @@ class DotBrowser {
           'untuk "$q".');
     }
     if (items.isEmpty && (answer ?? '').isEmpty && images.isEmpty) {
-      throw DotBrowserException('Dot Browser tidak menemukan hasil untuk "$q".');
+      throw DotBrowserException(
+          'Dot Browser tidak menemukan hasil untuk "$q".');
     }
     final StringBuffer b = StringBuffer();
     b.writeln('[Dot Browser] "$q" (${intent.name}; sumber: '
@@ -1086,9 +1109,9 @@ class DotBrowser {
       if (it.text.isNotEmpty) b.writeln('   ${_snippet(it.text, 400)}');
     }
     lastImages = images.values.take(10).map((DotImage e) => e.url).toList();
-    lastShowImages = (intent == DotIntent.images ||
-            intent == DotIntent.encyclopedia) &&
-        lastImages.isNotEmpty;
+    lastShowImages =
+        (intent == DotIntent.images || intent == DotIntent.encyclopedia) &&
+            lastImages.isNotEmpty;
     if (lastShowImages) {
       b.writeln('\nGambar: ${lastImages.length} gambar ditemukan dan otomatis '
           'tampil sebagai galeri geser di chat (jangan tulis URL gambar).');

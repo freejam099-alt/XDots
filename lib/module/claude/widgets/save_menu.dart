@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:gal/gal.dart';
 import 'package:path_provider/path_provider.dart';
+import 'dart:math' as math;
 
 import '../app_theme.dart';
 import 'vector_icons.dart';
@@ -30,8 +31,6 @@ Future<void> showSaveMenu(
   required String path,
   required bool isVideo,
 }) {
-  const double w = 150;
-  const double h = 56;
   return showGeneralDialog<void>(
     context: context,
     barrierDismissible: true,
@@ -41,10 +40,25 @@ Future<void> showSaveMenu(
     pageBuilder: (ctx, _, __) {
       final AppColors c = AppColors.of(ctx);
       final Size screen = MediaQuery.sizeOf(ctx);
-      final double left =
-          (anchor.dx - w / 2).clamp(16.0, screen.width - w - 16.0).toDouble();
+      final EdgeInsets pad = MediaQuery.paddingOf(ctx);
+      final double bottomInset =
+          math.max(pad.bottom, MediaQuery.viewInsetsOf(ctx).bottom);
+      final double w = math.min(150, math.max(0, screen.width - 32));
+      final double usableTop = pad.top + 8;
+      final double usableBottom = screen.height - bottomInset - 8;
+      final double availableHeight = math.max(0, usableBottom - usableTop);
+      final double h = math.min(
+        availableHeight,
+        math.max(56, MediaQuery.textScalerOf(ctx).scale(16) * 1.4 + 32),
+      );
+      final double left = (anchor.dx - w / 2)
+          .clamp(0.0, math.max(0, screen.width - w))
+          .toDouble();
       double top = anchor.dy - h - 12;
-      if (top < MediaQuery.paddingOf(ctx).top + 8) top = anchor.dy + 12;
+      if (top < usableTop) top = anchor.dy + 12;
+      top = top
+          .clamp(usableTop, math.max(usableTop, usableBottom - h))
+          .toDouble();
       return Stack(
         fit: StackFit.expand,
         children: [
@@ -55,37 +69,51 @@ Future<void> showSaveMenu(
               type: MaterialType.transparency,
               child: DefaultTextStyle(
                 style: const TextStyle(fontFamily: AppDims.fontFamily),
-                child: GestureDetector(
-                  behavior: HitTestBehavior.opaque,
-                  onTap: () async {
-                    Navigator.of(ctx).pop();
-                    try {
-                      await saveMediaToGallery(path, isVideo);
-                      Fluttertoast.showToast(
-                          msg: isVideo
-                              ? 'Video disimpan ke galeri'
-                              : 'Gambar disimpan ke galeri');
-                    } catch (_) {
-                      Fluttertoast.showToast(msg: 'Gagal menyimpan');
-                    }
-                  },
-                  child: Container(
-                    width: w,
-                    height: h,
-                    padding: const EdgeInsets.symmetric(horizontal: 18),
-                    decoration: BoxDecoration(
-                      color: c.surface,
-                      borderRadius: BorderRadius.circular(22),
-                      boxShadow: [c.shadowFloat],
-                    ),
-                    child: Row(
-                      children: [
-                        const SaveVectorIcon(size: 22),
-                        const SizedBox(width: 12),
-                        Text('Simpan',
-                            style: TextStyle(
-                                fontSize: 16, color: c.textPrimary)),
-                      ],
+                child: Container(
+                  width: w,
+                  height: h,
+                  decoration: BoxDecoration(
+                    color: c.surfaceSoft,
+                    borderRadius: BorderRadius.circular(24),
+                    boxShadow: [c.shadowMenu],
+                  ),
+                  child: Material(
+                    color: Colors.transparent,
+                    borderRadius: BorderRadius.circular(24),
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(24),
+                      onTap: () async {
+                        Navigator.of(ctx).pop();
+                        try {
+                          await saveMediaToGallery(path, isVideo);
+                          Fluttertoast.showToast(
+                              msg: isVideo
+                                  ? 'Video disimpan ke galeri'
+                                  : 'Gambar disimpan ke galeri');
+                        } catch (_) {
+                          Fluttertoast.showToast(msg: 'Gagal menyimpan');
+                        }
+                      },
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        child: Row(
+                          children: [
+                            const SaveVectorIcon(size: 22),
+                            const SizedBox(width: 12),
+                            Flexible(
+                              child: Text(
+                                'Simpan',
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  color: c.textPrimary,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                     ),
                   ),
                 ),

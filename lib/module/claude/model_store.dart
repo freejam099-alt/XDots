@@ -23,6 +23,10 @@ class ModelStore {
   static const String kCustomMcp = 'muse_custom_mcp';
   static const String kSessions = 'muse_sessions';
 
+  static List<Map<String, dynamic>>? _sessionCache;
+  static Future<void> _sessionWriteQueue = Future<void>.value();
+  static Object? _sessionWriteError;
+
   // -- Default model ------------------------------------------------------
 
   static String defaultChat() => SpUtil.getString(kDefaultChat);
@@ -33,11 +37,9 @@ class ModelStore {
 
   static void setDefaultChat(String id) => SpUtil.putString(kDefaultChat, id);
 
-  static void setDefaultImage(String id) =>
-      SpUtil.putString(kDefaultImage, id);
+  static void setDefaultImage(String id) => SpUtil.putString(kDefaultImage, id);
 
-  static void setDefaultVideo(String id) =>
-      SpUtil.putString(kDefaultVideo, id);
+  static void setDefaultVideo(String id) => SpUtil.putString(kDefaultVideo, id);
 
   // -- Toggle tools --------------------------------------------------------
 
@@ -67,8 +69,7 @@ class ModelStore {
 
   // -- Model manual + MCP kustom --------------------------------------------
 
-  static List<String> manualModels() =>
-      SpUtil.getStringList(kManualModels);
+  static List<String> manualModels() => SpUtil.getStringList(kManualModels);
 
   static void addManualModel(String id) {
     final String name = id.trim();
@@ -106,22 +107,56 @@ class ModelStore {
   // Disimpan sebagai JSON: [{id, title, time, messages:[...]}].
 
   static List<Map<String, dynamic>> sessions() {
+    if (_sessionCache != null) {
+      return _copySessions(_sessionCache!);
+    }
     final String raw = SpUtil.getString(kSessions);
     if (raw.isEmpty) return [];
     try {
       final dynamic decoded = jsonDecode(raw);
       if (decoded is List) {
-        return decoded
+        _sessionCache = decoded
             .whereType<Map>()
             .map((e) => Map<String, dynamic>.from(e))
             .toList();
+        return _copySessions(_sessionCache!);
       }
     } catch (_) {}
     return [];
   }
 
+  static List<Map<String, dynamic>> _copySessions(
+      List<Map<String, dynamic>> sessions) {
+    return [
+      for (final Map<String, dynamic> session in sessions)
+        Map<String, dynamic>.from(
+            jsonDecode(jsonEncode(session)) as Map<String, dynamic>),
+    ];
+  }
+
+  static void _queueSessionWrite(List<Map<String, dynamic>> all) {
+    final String raw = jsonEncode(all);
+    _sessionWriteQueue = _sessionWriteQueue.then((_) async {
+      try {
+        final bool? saved = await SpUtil.putString(kSessions, raw);
+        if (saved != true) throw StateError('Penyimpanan sesi gagal.');
+        _sessionWriteError = null;
+      } catch (error) {
+        _sessionWriteError = error;
+      }
+    });
+  }
+
+  /// Tunggu antrean persistence dan lemparkan error tulis terakhir jika ada.
+  static Future<void> flushSessionWrites() async {
+    await _sessionWriteQueue;
+    final Object? error = _sessionWriteError;
+    _sessionWriteError = null;
+    if (error != null) throw StateError('Penyimpanan sesi gagal: $error');
+  }
+
   static String saveSession(String title, List<ChatMsg> messages) {
-    final String id = DateTime.now().millisecondsSinceEpoch.toString();
+    final String id = DateTime.now().microsecondsSinceEpoch.toString();
     final List<Map<String, dynamic>> all = sessions();
     all.insert(0, {
       'id': id,
@@ -129,7 +164,8 @@ class ModelStore {
       'time': DateTime.now().millisecondsSinceEpoch,
       'messages': [for (final ChatMsg m in messages) m.toJson()],
     });
-    SpUtil.putString(kSessions, jsonEncode(all));
+    _sessionCache = all;
+    _queueSessionWrite(all);
     return id;
   }
 
@@ -140,8 +176,7 @@ class ModelStore {
         if (list is List) {
           return list
               .whereType<Map>()
-              .map((e) => ChatMsg.fromJson(
-                  Map<String, dynamic>.from(e)))
+              .map((e) => ChatMsg.fromJson(Map<String, dynamic>.from(e)))
               .toList();
         }
       }
@@ -152,6 +187,7 @@ class ModelStore {
   static void deleteSession(String id) {
     final List<Map<String, dynamic>> all = sessions();
     all.removeWhere((e) => e['id'] == id);
-    SpUtil.putString(kSessions, jsonEncode(all));
+    _sessionCache = all;
+    _queueSessionWrite(all);
   }
 }

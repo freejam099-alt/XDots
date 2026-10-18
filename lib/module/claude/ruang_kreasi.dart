@@ -96,8 +96,8 @@ class _RuangKreasiPageState extends State<RuangKreasiPage> {
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
         children: [
           _GroupedModelSection(
-            title: _t(context, 'Model Chat Default', 'Default Chat Model',
-                '默认聊天模型'),
+            title: _t(
+                context, 'Model Chat Default', 'Default Chat Model', '默认聊天模型'),
             current: ModelStore.defaultChat(),
             options: _chatOptions(),
             emptyHint: _t(
@@ -132,8 +132,8 @@ class _RuangKreasiPageState extends State<RuangKreasiPage> {
           GestureDetector(
             behavior: HitTestBehavior.opaque,
             onTap: () {
-              Navigator.of(context).push(MaterialPageRoute<void>(
-                  builder: (_) => const ServerPanel()));
+              Navigator.of(context).push(
+                  MaterialPageRoute<void>(builder: (_) => const ServerPanel()));
             },
             child: Container(
               height: 52,
@@ -199,8 +199,7 @@ class _GroupedModelSectionState extends State<_GroupedModelSection> {
   final Set<String> _open = <String>{};
 
   Map<String, List<_ModelOption>> _groups() {
-    final Map<String, List<_ModelOption>> out =
-        <String, List<_ModelOption>>{};
+    final Map<String, List<_ModelOption>> out = <String, List<_ModelOption>>{};
     for (final _ModelOption o in widget.options) {
       final String key = o.subtitle.isEmpty ? 'Lainnya' : o.subtitle;
       out.putIfAbsent(key, () => <_ModelOption>[]).add(o);
@@ -235,8 +234,7 @@ class _GroupedModelSectionState extends State<_GroupedModelSection> {
           if (groups.isEmpty)
             Container(
               width: double.infinity,
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
               decoration: BoxDecoration(
                 color: c.surfaceSoft,
                 borderRadius: BorderRadius.circular(22),
@@ -245,8 +243,7 @@ class _GroupedModelSectionState extends State<_GroupedModelSection> {
                   style: TextStyle(fontSize: 14, color: c.textMuted)),
             )
           else
-            for (final MapEntry<String, List<_ModelOption>> g
-                in groups.entries)
+            for (final MapEntry<String, List<_ModelOption>> g in groups.entries)
               _ProviderGroup(
                 name: g.key,
                 models: g.value,
@@ -299,8 +296,7 @@ class _ProviderGroup extends StatelessWidget {
             behavior: HitTestBehavior.opaque,
             onTap: onToggleOpen,
             child: Padding(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
               child: Row(
                 children: [
                   Container(
@@ -331,8 +327,7 @@ class _ProviderGroup extends StatelessWidget {
                                 fontWeight: FontWeight.w600,
                                 color: c.textPrimary)),
                         Text('${models.length} model',
-                            style: TextStyle(
-                                fontSize: 12, color: c.textMuted)),
+                            style: TextStyle(fontSize: 12, color: c.textMuted)),
                       ],
                     ),
                   ),
@@ -348,8 +343,8 @@ class _ProviderGroup extends StatelessWidget {
                     turns: open ? 0.5 : 0.0,
                     duration: AppDims.animMed,
                     curve: Curves.easeOutCubic,
-                    child: Icon(Icons.expand_more,
-                        size: 24, color: c.textMuted),
+                    child:
+                        Icon(Icons.expand_more, size: 24, color: c.textMuted),
                   ),
                 ],
               ),
@@ -422,20 +417,18 @@ class _PopupModelPicker extends StatelessWidget {
     if (options.isEmpty) {
       box = Padding(
         padding: const EdgeInsets.symmetric(vertical: 14),
-        child: Text(emptyHint,
-            style: TextStyle(fontSize: 14, color: c.textMuted)),
+        child:
+            Text(emptyHint, style: TextStyle(fontSize: 14, color: c.textMuted)),
       );
     } else {
       box = PullDownButton(
-        scrollController: ScrollController(),
         itemBuilder: (BuildContext ctx) {
           final List<PullDownMenuEntry> items = <PullDownMenuEntry>[];
           groups.forEach((String name, List<_ModelOption> list) {
             items.add(PullDownMenuTitle(
               title: Padding(
                 padding: const EdgeInsets.only(top: 5, bottom: 5),
-                child: Text(name,
-                    style: Theme.of(ctx).textTheme.bodySmall),
+                child: Text(name, style: Theme.of(ctx).textTheme.bodySmall),
               ),
             ));
             for (final _ModelOption o in list) {
@@ -454,8 +447,7 @@ class _PopupModelPicker extends StatelessWidget {
           }
           return items;
         },
-        buttonBuilder:
-            (BuildContext ctx, Future<void> Function() showMenu) {
+        buttonBuilder: (BuildContext ctx, Future<void> Function() showMenu) {
           return GestureDetector(
             behavior: HitTestBehavior.opaque,
             onTap: showMenu,
@@ -470,9 +462,7 @@ class _PopupModelPicker extends StatelessWidget {
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
                         fontSize: 15,
-                        color: current.isEmpty
-                            ? c.textMuted
-                            : c.textPrimary,
+                        color: current.isEmpty ? c.textMuted : c.textPrimary,
                       ),
                     ),
                   ),
@@ -552,8 +542,7 @@ class _ModelToggleRow extends StatelessWidget {
                       option.subtitle,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style:
-                          TextStyle(fontSize: 12, color: c.textMuted),
+                      style: TextStyle(fontSize: 12, color: c.textMuted),
                     ),
                 ],
               ),

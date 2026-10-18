@@ -50,32 +50,47 @@ android {
             abiFilters "arm64-v8a"
         }
     }
+    // Private signing values come only from an ignored file or CI environment.
+    def signingProperties = new Properties()
+    def signingPropertiesFile = rootProject.file('key.properties')
+    if (signingPropertiesFile.exists()) {
+        signingPropertiesFile.withInputStream { signingProperties.load(it) }
+    }
+    def signingValue = { String property, String environment ->
+        signingProperties.getProperty(property) ?: System.getenv(environment)
+    }
+    def releaseStorePath = signingValue('storeFile', 'XDOTS_KEYSTORE_PATH')
+    def releaseStorePassword = signingValue('storePassword', 'XDOTS_STORE_PASSWORD')
+    def releaseKeyAlias = signingValue('keyAlias', 'XDOTS_KEY_ALIAS')
+    def releaseKeyPassword = signingValue('keyPassword', 'XDOTS_KEY_PASSWORD')
+    def hasReleaseSigning = releaseStorePath && releaseStorePassword &&
+            releaseKeyAlias && releaseKeyPassword && file(releaseStorePath).exists()
     signingConfigs {
         release {
-            // Keystore asli milik author; di CI / mesin baru tidak ada,
-            // sehingga fallback ke debug signing agar build tetap jalan.
-            def ksFile = file("/Users/newtab/jiangyuesong.keystore")
-            if (ksFile.exists()) {
-                storeFile ksFile
-                storePassword "JiangYueSong2015"
-                keyAlias "chatbot"
-                keyPassword "chatbot"
+            if (hasReleaseSigning) {
+                storeFile file(releaseStorePath)
+                storePassword releaseStorePassword
+                keyAlias releaseKeyAlias
+                keyPassword releaseKeyPassword
                 v1SigningEnabled true
                 v2SigningEnabled true
             }
         }
     }
-
-    // true hanya jika keystore rilis benar-benar ada.
-    def hasReleaseKeystore = file("/Users/newtab/jiangyuesong.keystore").exists()
-
     buildTypes {
         release {
-            signingConfig hasReleaseKeystore ? signingConfigs.release : signingConfigs.debug
-            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+            if (hasReleaseSigning) signingConfig signingConfigs.release
         }
         debug {
-            signingConfig hasReleaseKeystore ? signingConfigs.release : signingConfigs.debug
+            signingConfig signingConfigs.debug
+        }
+    }
+    // Release must never silently fall back to the debug identity.
+    gradle.taskGraph.whenReady { graph ->
+        if (!hasReleaseSigning && graph.allTasks.any {
+            it.name == 'packageRelease' || it.name == 'bundleRelease'
+        }) {
+            throw new GradleException('Release signing is not configured. Use key.properties or XDOTS signing environment variables; use a debug build for previews.')
         }
     }
 }

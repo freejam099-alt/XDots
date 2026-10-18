@@ -1,492 +1,382 @@
+import 'dart:convert';
+import 'dart:io';
+
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../app_theme.dart';
+import '../chat_data.dart';
+import 'file_icon.dart';
 
-/// 1) File card (PDF): full width, radius 26.
-class FileCard extends StatelessWidget {
-  final String title;
-  const FileCard({super.key, required this.title});
+Uri? webActionUri(String? value) {
+  final Uri? uri = Uri.tryParse(value ?? '');
+  return uri != null &&
+          (uri.scheme == 'https' || uri.scheme == 'http') &&
+          uri.host.isNotEmpty &&
+          uri.userInfo.isEmpty
+      ? uri
+      : null;
+}
 
-  @override
-  Widget build(BuildContext context) {
-    final AppColors c = AppColors.of(context);
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: c.aiBubble,
-        borderRadius: BorderRadius.circular(26),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            height: 110,
-            width: double.infinity,
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.65),
-              borderRadius: BorderRadius.circular(14),
-            ),
-            child: Center(
-              child: Icon(Icons.description_outlined,
-                  size: 40, color: c.textMuted),
-            ),
-          ),
-          const SizedBox(height: 10),
-          Row(
-            children: [
-              Container(
-                width: 44,
-                height: 44,
-                decoration: BoxDecoration(
-                  color: c.pdfRed,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Center(
-                  child: const Text('PDF',
-                      style: TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 13)),
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(title,
-                        style: TextStyle(
-                            fontSize: AppDims.chatFontSize,
-                            color: c.textPrimary)),
-                    Text('PDF',
-                        style: TextStyle(
-                            fontSize: 13, color: c.textMuted)),
-                  ],
-                ),
-              ),
-              Icon(Icons.more_horiz, color: c.textMuted),
-            ],
-          ),
-        ],
-      ),
-    );
+Future<void> openWebAction(BuildContext context, String? value) async {
+  final Uri? uri = webActionUri(value);
+  if (uri == null) return;
+  try {
+    if (await launchUrl(uri, mode: LaunchMode.externalApplication)) return;
+  } catch (_) {
+    // A failed launch must never appear as a completed browser action.
+  }
+  if (!context.mounted) return;
+  ScaffoldMessenger.of(context).showSnackBar(
+    const SnackBar(content: Text('Tautan tidak dapat dibuka.')),
+  );
+}
+
+/// Membaca hanya potongan awal berkas, bukan seluruh berkas ke memori.
+Future<String?> readFileExcerpt(MsgAttachment attachment) async {
+  const Set<String> textExtensions = {
+    'txt',
+    'md',
+    'markdown',
+    'json',
+    'xml',
+    'yaml',
+    'yml',
+    'csv',
+    'log',
+    'html',
+    'htm',
+    'css',
+    'js',
+    'ts',
+    'dart',
+    'py',
+    'java',
+    'kt',
+    'c',
+    'h',
+    'cpp',
+    'sh',
+    'sql',
+    'ini',
+    'toml',
+  };
+  if (!textExtensions.contains(attachment.name.split('.').last.toLowerCase())) {
+    return null;
+  }
+  RandomAccessFile? handle;
+  try {
+    handle = await File(attachment.path).open();
+    final List<int> bytes = await handle.read(8192);
+    final bool truncated = await handle.length() > bytes.length;
+    final String text = utf8.decode(bytes, allowMalformed: true);
+    return '$text${truncated ? '\n\n… Pratinjau dibatasi 8 KB.' : ''}';
+  } catch (_) {
+    return 'Berkas tidak tersedia di perangkat ini.';
+  } finally {
+    await handle?.close();
   }
 }
 
-/// 2) Checkout card.
-class CheckoutCard extends StatelessWidget {
-  final String domain;
-  final String total;
-  final VoidCallback? onAllow;
-  final VoidCallback? onDeny;
-  const CheckoutCard({
-    super.key,
-    required this.domain,
-    required this.total,
-    this.onAllow,
-    this.onDeny,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final AppColors c = AppColors.of(context);
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(26),
-        boxShadow: [c.shadowFloat],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
+Future<void> showAttachmentPreview(
+    BuildContext context, MsgAttachment attachment) {
+  final AppColors c = AppColors.of(context);
+  return showModalBottomSheet<void>(
+    context: context,
+    isScrollControlled: true,
+    backgroundColor: c.surface,
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+    ),
+    builder: (context) => SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            maxHeight: MediaQuery.sizeOf(context).height * 0.72,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Icon(Icons.shopping_cart_outlined,
-                  color: c.textPrimary),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  'Checkout · Muse wants to place an order at $domain',
-                  style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 16,
-                      color: c.textPrimary),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Please review the order before approving.',
-            style: TextStyle(fontSize: 15, color: c.textMuted),
-          ),
-          const SizedBox(height: 12),
-          Stack(
-            children: [
-              Container(
-                height: 190,
-                width: double.infinity,
-                decoration: BoxDecoration(
-                  color: c.surfaceSoft,
-                  borderRadius: BorderRadius.circular(14),
-                ),
-                child: Center(
-                  child: Icon(Icons.storefront_outlined,
-                      size: 48, color: c.textMuted),
-                ),
-              ),
-              Positioned(
-                right: 10,
-                bottom: 10,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 10, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.85),
-                    borderRadius: BorderRadius.circular(999),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      CircleAvatar(
-                          radius: 10,
-                          backgroundColor: c.surfaceSoft,
-                          child: Text('M',
-                              style: TextStyle(
-                                  fontSize: 10,
-                                  color: c.textPrimary))),
-                      const SizedBox(width: 6),
-                      Text('Review order',
-                          style: TextStyle(
-                              fontSize: 13, color: c.textPrimary)),
-                      const SizedBox(width: 4),
-                      Icon(Icons.open_in_full,
-                          size: 14, color: c.textPrimary),
-                    ],
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Container(
-            height: 64,
-            padding: const EdgeInsets.symmetric(horizontal: 12),
-            decoration: BoxDecoration(
-              color: c.surfaceSoft,
-              borderRadius: BorderRadius.circular(22),
-            ),
-            child: Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 6, vertical: 3),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  child: const Text('VISA',
-                      style: TextStyle(
-                          fontWeight: FontWeight.bold, fontSize: 12)),
-                ),
+              Row(children: [
+                FileIconImage(filename: attachment.name, size: 36),
                 const SizedBox(width: 10),
                 Expanded(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('Credit Card •••• 1234',
-                          style: TextStyle(
-                              fontSize: AppDims.chatFontSize,
-                              color: c.textPrimary)),
-                      Row(
-                        children: [
-                          Icon(Icons.circle,
-                              size: 8, color: c.linkGreen),
-                          const SizedBox(width: 4),
-                          Text('Pay with Link',
+                    child: Text(attachment.name,
+                        style: TextStyle(color: c.textPrimary, fontSize: 18),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis)),
+                IconButton(
+                    tooltip: 'Tutup',
+                    onPressed: () => Navigator.pop(context),
+                    icon: Icon(Icons.close, color: c.textMuted)),
+              ]),
+              const SizedBox(height: 16),
+              Flexible(
+                child: attachment.kind == 0 || attachment.kind == 1
+                    ? Image.file(File(attachment.path),
+                        fit: BoxFit.contain,
+                        errorBuilder: (_, __, ___) =>
+                            const Text('Gambar tidak tersedia.'))
+                    : FutureBuilder<String?>(
+                        future: readFileExcerpt(attachment),
+                        builder: (context, snapshot) {
+                          if (snapshot.connectionState !=
+                              ConnectionState.done) {
+                            return const Padding(
+                                padding: EdgeInsets.all(16),
+                                child: CircularProgressIndicator());
+                          }
+                          return SingleChildScrollView(
+                            child: SelectableText(
+                              snapshot.data ??
+                                  'Pratinjau format ini belum didukung. Isi berkas tidak ditampilkan.',
                               style: TextStyle(
-                                  fontSize: 12,
-                                  color: c.textMuted)),
-                        ],
+                                  color: c.textPrimary,
+                                  fontSize: 14,
+                                  height: 1.5,
+                                  fontFamily: AppDims.fontFamily),
+                            ),
+                          );
+                        },
                       ),
-                    ],
-                  ),
-                ),
-                Icon(Icons.chevron_right,
-                    color: c.textMuted),
-              ],
-            ),
-          ),
-          const SizedBox(height: 12),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text('Estimated total',
-                  style: TextStyle(
-                      fontSize: 15, color: c.textMuted)),
-              Text(total,
-                  style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 16,
-                      color: c.textPrimary)),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(
-                flex: 9,
-                child: SizedBox(
-                  height: 52,
-                  child: FilledButton(
-                    style: FilledButton.styleFrom(
-                      backgroundColor: c.btnSecondary,
-                      foregroundColor: c.textPrimary,
-                      shape: const StadiumBorder(),
-                    ),
-                    onPressed: onDeny,
-                    child: const Text('Deny'),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                flex: 11,
-                child: Container(
-                  height: 52,
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(colors: [
-                      c.accent,
-                      c.accentEnd
-                    ]),
-                    borderRadius: BorderRadius.circular(999),
-                  ),
-                  child: FilledButton(
-                    style: FilledButton.styleFrom(
-                      backgroundColor: Colors.transparent,
-                      shadowColor: Colors.transparent,
-                      shape: const StadiumBorder(),
-                    ),
-                    onPressed: onAllow,
-                    child: const Text('Allow',
-                        style: TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.w600)),
-                  ),
-                ),
               ),
             ],
           ),
-        ],
+        ),
       ),
-    );
+    ),
+  );
+}
+
+/// Kartu berkas nyata; tidak mengarang judul, format atau isi dokumen.
+class FileCard extends StatelessWidget {
+  final String title;
+  final List<MsgAttachment> attachments;
+  const FileCard({super.key, required this.title, this.attachments = const []});
+
+  @override
+  Widget build(BuildContext context) {
+    final AppColors c = AppColors.of(context);
+    return _CardSurface(
+        child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (title.isNotEmpty)
+          Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Text(title,
+                  style: TextStyle(fontSize: 16, color: c.textPrimary))),
+        if (attachments.isEmpty)
+          Text('Tidak ada berkas terlampir.',
+              style: TextStyle(color: c.textMuted)),
+        for (final MsgAttachment attachment in attachments)
+          ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: FileIconImage(filename: attachment.name, size: 42),
+            title: Text(attachment.name,
+                maxLines: 2, overflow: TextOverflow.ellipsis),
+            subtitle: const Text('Lihat pratinjau berkas'),
+            trailing: const Icon(Icons.open_in_new, size: 18),
+            onTap: () => showAttachmentPreview(context, attachment),
+          ),
+      ],
+    ));
   }
 }
 
-/// 3) Browser card: seat picker.
-class BrowserCard extends StatefulWidget {
-  const BrowserCard({super.key});
+/// Permintaan ini aktif hanya bila masih ada callback backend yang menunggu.
+class CheckoutCard extends StatelessWidget {
+  final String? domain;
+  final String? total;
+  final String summary;
+  final String? actionUrl;
+  final String? previewImage;
+  final ApprovalStatus status;
+  final VoidCallback? onAllow;
+  final VoidCallback? onDeny;
+  const CheckoutCard(
+      {super.key,
+      this.domain,
+      this.total,
+      this.summary = '',
+      this.actionUrl,
+      this.previewImage,
+      this.status = ApprovalStatus.expired,
+      this.onAllow,
+      this.onDeny});
 
   @override
-  State<BrowserCard> createState() => _BrowserCardState();
+  Widget build(BuildContext context) {
+    final AppColors c = AppColors.of(context);
+    final bool active =
+        status == ApprovalStatus.pending && onAllow != null && onDeny != null;
+    final String label = active
+        ? 'Menunggu persetujuan'
+        : switch (status) {
+            ApprovalStatus.approved => 'Disetujui',
+            ApprovalStatus.denied => 'Ditolak',
+            _ => 'Permintaan tidak aktif',
+          };
+    return _CardSurface(
+        child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(children: [
+          Icon(Icons.verified_user_outlined, color: c.accent),
+          const SizedBox(width: 10),
+          Expanded(
+              child: Text(label,
+                  style: TextStyle(
+                      fontSize: 17,
+                      fontWeight: FontWeight.w600,
+                      color: c.textPrimary))),
+        ]),
+        if (domain != null && domain!.isNotEmpty)
+          Padding(
+              padding: const EdgeInsets.only(top: 6),
+              child: Text(domain!, style: TextStyle(color: c.textMuted))),
+        if (summary.isNotEmpty)
+          Padding(
+              padding: const EdgeInsets.only(top: 12),
+              child: Text(summary,
+                  style: TextStyle(color: c.textPrimary, height: 1.4))),
+        if (webActionUri(previewImage) != null)
+          Padding(
+              padding: const EdgeInsets.only(top: 12),
+              child: _WebPreview(url: previewImage!)),
+        if (webActionUri(actionUrl) != null)
+          Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: OutlinedButton.icon(
+                  onPressed: () => openWebAction(context, actionUrl),
+                  icon: const Icon(Icons.open_in_new, size: 16),
+                  label: const Text('Tinjau detail'))),
+        if (total != null && total!.isNotEmpty)
+          Padding(
+              padding: const EdgeInsets.only(top: 12),
+              child: Wrap(spacing: 12, runSpacing: 6, children: [
+                Text('Estimasi total', style: TextStyle(color: c.textMuted)),
+                Text(total!,
+                    style: TextStyle(
+                        color: c.textPrimary, fontWeight: FontWeight.w600)),
+              ])),
+        if (active) ...[
+          const SizedBox(height: 12),
+          Text('Periksa detail dan ketentuan sebelum mengizinkan tindakan ini.',
+              style: TextStyle(fontSize: 13, height: 1.4, color: c.textMuted)),
+          const SizedBox(height: 14),
+          Row(children: [
+            Expanded(
+                child: FilledButton(
+                    style: FilledButton.styleFrom(
+                        backgroundColor: c.btnSecondary,
+                        foregroundColor: c.textPrimary,
+                        minimumSize: const Size(0, 48),
+                        shape: const StadiumBorder()),
+                    onPressed: onDeny,
+                    child: const Text('Tolak'))),
+            const SizedBox(width: 10),
+            Expanded(
+                child: FilledButton(
+                    style: FilledButton.styleFrom(
+                        backgroundColor: c.accent,
+                        foregroundColor: Colors.white,
+                        minimumSize: const Size(0, 48),
+                        shape: const StadiumBorder()),
+                    onPressed: onAllow,
+                    child: const Text('Izinkan'))),
+          ]),
+        ],
+      ],
+    ));
+  }
 }
 
-class _BrowserCardState extends State<BrowserCard> {
-  final Set<int> _selected = {14};
+/// Browser ditampilkan hanya dari event nyata, tanpa kursi atau halaman simulasi.
+class BrowserCard extends StatelessWidget {
+  final String detail;
+  final String? url;
+  final String? previewImage;
+  const BrowserCard({super.key, this.detail = '', this.url, this.previewImage});
 
+  @override
+  Widget build(BuildContext context) {
+    final AppColors c = AppColors.of(context);
+    final Uri? uri = webActionUri(url);
+    return _CardSurface(
+        child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(children: [
+          Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                  color: c.globeBox, borderRadius: BorderRadius.circular(12)),
+              child: Icon(Icons.public, color: c.globeIcon)),
+          const SizedBox(width: 10),
+          Expanded(
+              child: Text(uri?.host ?? 'Browser',
+                  style: TextStyle(
+                      color: c.textPrimary,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600))),
+        ]),
+        if (detail.isNotEmpty)
+          Padding(
+              padding: const EdgeInsets.only(top: 10),
+              child: Text(detail,
+                  style: TextStyle(color: c.textMuted, height: 1.4))),
+        if (webActionUri(previewImage) != null)
+          Padding(
+              padding: const EdgeInsets.only(top: 12),
+              child: _WebPreview(url: previewImage!)),
+        if (uri != null)
+          Padding(
+              padding: const EdgeInsets.only(top: 12),
+              child: SizedBox(
+                  width: double.infinity,
+                  child: FilledButton.tonalIcon(
+                      onPressed: () => openWebAction(context, url),
+                      icon: const Icon(Icons.open_in_new, size: 16),
+                      label: const Text('Buka browser')))),
+      ],
+    ));
+  }
+}
+
+class _WebPreview extends StatelessWidget {
+  final String url;
+  const _WebPreview({required this.url});
+  @override
+  Widget build(BuildContext context) => ClipRRect(
+        borderRadius: BorderRadius.circular(16),
+        child: Image.network(url,
+            width: double.infinity,
+            height: 170,
+            fit: BoxFit.cover,
+            errorBuilder: (_, __, ___) => Padding(
+                padding: const EdgeInsets.all(12),
+                child: Text('Pratinjau tidak tersedia.',
+                    style: TextStyle(color: AppColors.of(context).textMuted)))),
+      );
+}
+
+class _CardSurface extends StatelessWidget {
+  final Widget child;
+  const _CardSurface({required this.child});
   @override
   Widget build(BuildContext context) {
     final AppColors c = AppColors.of(context);
     return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: c.aiBubble,
-        borderRadius: BorderRadius.circular(26),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  color: const Color(0xFFE3F0FD),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Icon(Icons.public,
-                    color: c.accent),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('Browser',
-                        style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                            color: c.textPrimary)),
-                    Text('Selecting seats...',
-                        style: TextStyle(
-                            fontSize: 13, color: c.textMuted)),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(14),
-            ),
-            child: Column(
-              children: [
-                Text('SCREEN',
-                    style: TextStyle(
-                        fontSize: 11,
-                        letterSpacing: 2,
-                        color: c.textMuted)),
-                const SizedBox(height: 6),
-                Container(
-                    height: 4,
-                    decoration: BoxDecoration(
-                        color: c.seatAvailable,
-                        borderRadius: BorderRadius.circular(999))),
-                const SizedBox(height: 10),
-                Column(
-                  children: List.generate(6, (row) {
-                    return Padding(
-                      padding: const EdgeInsets.only(bottom: 5),
-                      child: Row(
-                        children: [
-                          SizedBox(
-                            width: 16,
-                            child: Text(
-                                String.fromCharCode(65 + row),
-                                style: TextStyle(
-                                    fontSize: 11,
-                                    color: c.textMuted)),
-                          ),
-                          Expanded(
-                            child: GridView.builder(
-                              shrinkWrap: true,
-                              physics:
-                                  const NeverScrollableScrollPhysics(),
-                              gridDelegate:
-                                  const SliverGridDelegateWithFixedCrossAxisCount(
-                                crossAxisCount: 11,
-                                mainAxisSpacing: 5,
-                                crossAxisSpacing: 5,
-                              ),
-                              itemCount: 11,
-                              itemBuilder: (context, col) {
-                                final int idx = row * 11 + col;
-                                final bool taken = (idx % 9 == 4);
-                                final bool sel =
-                                    _selected.contains(idx);
-                                final Color seat = sel
-                                    ? c.seatSelected
-                                    : (taken
-                                        ? c.seatTaken
-                                        : c.seatAvailable);
-                                return GestureDetector(
-                                  onTap: taken
-                                      ? null
-                                      : () => setState(() {
-                                            if (sel) {
-                                              _selected.remove(idx);
-                                            } else {
-                                              _selected.add(idx);
-                                            }
-                                          }),
-                                  child: Container(
-                                    width: 22,
-                                    height: 22,
-                                    decoration: BoxDecoration(
-                                      color: seat,
-                                      borderRadius:
-                                          BorderRadius.circular(6),
-                                    ),
-                                  ),
-                                );
-                              },
-                            ),
-                          ),
-                        ],
-                      ),
-                    );
-                  }),
-                ),
-                const SizedBox(height: 6),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    _Legend(
-                        color: c.seatAvailable,
-                        label: 'Available'),
-                    const SizedBox(width: 12),
-                    _Legend(
-                        color: c.seatTaken, label: 'Taken'),
-                    const SizedBox(width: 12),
-                    _Legend(
-                        color: c.seatSelected,
-                        label: 'Selected'),
-                  ],
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 10),
-          Container(
-            height: 48,
-            width: double.infinity,
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.7),
-              borderRadius: BorderRadius.circular(999),
-            ),
-            child: Center(
-              child: Text('Open browser',
-                  style: TextStyle(
-                      fontSize: 15, color: c.textPrimary)),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _Legend extends StatelessWidget {
-  final Color color;
-  final String label;
-  const _Legend({required this.color, required this.label});
-
-  @override
-  Widget build(BuildContext context) {
-    final AppColors c = AppColors.of(context);
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Container(
-          width: 12,
-          height: 12,
-          decoration: BoxDecoration(
-              color: color, borderRadius: BorderRadius.circular(4)),
-        ),
-        const SizedBox(width: 4),
-        Text(label,
-            style:
-                TextStyle(fontSize: 11, color: c.textMuted)),
-      ],
-    );
+        width: double.infinity,
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+            color: c.surface,
+            borderRadius: BorderRadius.circular(26),
+            border: Border.all(color: c.textMuted.withOpacity(0.08)),
+            boxShadow: [c.shadowFloat]),
+        child: child);
   }
 }

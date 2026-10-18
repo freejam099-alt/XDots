@@ -34,8 +34,7 @@ class _StreamingTextState extends State<StreamingText> {
     super.initState();
     _shown = widget.streaming ? 0 : widget.text.length;
     if (widget.streaming) _startReveal();
-    _cursorTimer =
-        Timer.periodic(const Duration(milliseconds: 530), (_) {
+    _cursorTimer = Timer.periodic(const Duration(milliseconds: 530), (_) {
       if (!mounted) return;
       setState(() => _cursorOn = !_cursorOn);
     });
@@ -78,14 +77,17 @@ class _StreamingTextState extends State<StreamingText> {
   @override
   Widget build(BuildContext context) {
     final AppColors c = AppColors.of(context);
-    final TextStyle style = widget.style ??
+    final TextStyle style = widget.style?.copyWith(
+          fontFamily: AppDims.fontFamily,
+        ) ??
         TextStyle(
+          fontFamily: AppDims.fontFamily,
           fontSize: AppDims.chatFontSize,
           height: AppDims.chatLineHeight,
           color: c.textPrimary,
         );
-    final String visible = widget.text.substring(
-        0, _shown.clamp(0, widget.text.length).toInt());
+    final String visible =
+        widget.text.substring(0, _shown.clamp(0, widget.text.length).toInt());
     return Text.rich(
       TextSpan(
         text: visible,

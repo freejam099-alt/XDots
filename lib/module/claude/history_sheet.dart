@@ -50,8 +50,7 @@ class _HistoryDrawerState extends State<_HistoryDrawer> {
   }
 
   String _dateText(int time) {
-    final DateTime d =
-        DateTime.fromMillisecondsSinceEpoch(time);
+    final DateTime d = DateTime.fromMillisecondsSinceEpoch(time);
     String two(int v) => v.toString().padLeft(2, '0');
     return '${two(d.day)}/${two(d.month)} ${two(d.hour)}:${two(d.minute)}';
   }
@@ -59,9 +58,8 @@ class _HistoryDrawerState extends State<_HistoryDrawer> {
   @override
   Widget build(BuildContext context) {
     final AppColors c = AppColors.of(context);
-    final double width = (MediaQuery.of(context).size.width * 0.82)
-        .clamp(0.0, 340.0)
-        .toDouble();
+    final double width =
+        (MediaQuery.of(context).size.width * 0.82).clamp(0.0, 340.0).toDouble();
     return DefaultTextStyle(
       style: const TextStyle(fontFamily: AppDims.fontFamily),
       child: Align(
@@ -97,91 +95,84 @@ class _HistoryDrawerState extends State<_HistoryDrawer> {
                       ? Center(
                           child: Text(
                             'Belum ada riwayat',
-                            style: TextStyle(
-                                fontSize: 15, color: c.textMuted),
+                            style: TextStyle(fontSize: 15, color: c.textMuted),
                           ),
                         )
                       : ListView(
-                          padding: const EdgeInsets.fromLTRB(
-                              16, 8, 16, 24),
+                          padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
                           children: [
-                            for (final Map<String, dynamic> s
-                                in _sessions)
+                            for (final Map<String, dynamic> s in _sessions)
                               Container(
-                                margin: const EdgeInsets.only(
-                                    bottom: 8),
-                                padding:
-                                    const EdgeInsets.symmetric(
-                                        horizontal: 14,
-                                        vertical: 11),
+                                margin: const EdgeInsets.only(bottom: 8),
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 14, vertical: 11),
                                 decoration: BoxDecoration(
                                   color: c.surfaceSoft,
-                                  borderRadius:
-                                      BorderRadius.circular(22),
+                                  borderRadius: BorderRadius.circular(22),
                                 ),
                                 child: Row(
                                   children: [
                                     Expanded(
-                                      child: GestureDetector(
-                                        behavior:
-                                            HitTestBehavior.opaque,
-                                        onTap: () {
-                                          final List<ChatMsg> msgs =
-                                              ModelStore.loadSession(
-                                                  s['id'] as String? ??
-                                                      '');
-                                          widget.onPick(msgs);
-                                        },
-                                        child: Column(
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment
-                                                  .start,
-                                          children: [
-                                            Text(
-                                              s['title'] as String? ??
-                                                  'Obrolan',
-                                              style: TextStyle(
-                                                fontSize: 15,
-                                                fontWeight:
-                                                    FontWeight.w600,
-                                                color: c.textPrimary,
+                                      child: ConstrainedBox(
+                                        constraints: const BoxConstraints(
+                                          minHeight: 48,
+                                        ),
+                                        child: InkWell(
+                                          onTap: () {
+                                            final List<ChatMsg> msgs =
+                                                ModelStore.loadSession(
+                                                    s['id'] as String? ?? '');
+                                            widget.onPick(msgs);
+                                          },
+                                          child: Column(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
+                                            mainAxisAlignment:
+                                                MainAxisAlignment.center,
+                                            children: [
+                                              Text(
+                                                s['title'] as String? ??
+                                                    'Obrolan',
+                                                style: TextStyle(
+                                                  fontSize: 15,
+                                                  fontWeight: FontWeight.w600,
+                                                  color: c.textPrimary,
+                                                ),
+                                                maxLines: 1,
+                                                overflow: TextOverflow.ellipsis,
                                               ),
-                                              maxLines: 1,
-                                              overflow:
-                                                  TextOverflow.ellipsis,
-                                            ),
-                                            Text(
-                                              _dateText(
-                                                  (s['time'] as num?)
-                                                          ?.toInt() ??
-                                                      0),
-                                              style: TextStyle(
-                                                  fontSize: 12,
-                                                  color: c.textMuted),
-                                            ),
-                                          ],
+                                              Text(
+                                                _dateText((s['time'] as num?)
+                                                        ?.toInt() ??
+                                                    0),
+                                                style: TextStyle(
+                                                    fontSize: 12,
+                                                    color: c.textMuted),
+                                              ),
+                                            ],
+                                          ),
                                         ),
                                       ),
                                     ),
-                                    GestureDetector(
-                                      behavior:
-                                          HitTestBehavior.opaque,
-                                      onTap: () {
+                                    IconButton(
+                                      tooltip: 'Hapus riwayat',
+                                      constraints:
+                                          const BoxConstraints.tightFor(
+                                        width: 48,
+                                        height: 48,
+                                      ),
+                                      padding: EdgeInsets.zero,
+                                      onPressed: () {
                                         ModelStore.deleteSession(
-                                            s['id'] as String? ??
-                                                '');
+                                            s['id'] as String? ?? '');
                                         setState(() {
-                                          _sessions = ModelStore
-                                              .sessions();
+                                          _sessions = ModelStore.sessions();
                                         });
                                       },
-                                      child: Padding(
-                                        padding:
-                                            const EdgeInsets.all(8),
-                                        child: Icon(
-                                            Icons.delete_outline,
-                                            size: 20,
-                                            color: c.pdfRed),
+                                      icon: Icon(
+                                        Icons.delete_outline,
+                                        size: 20,
+                                        color: c.pdfRed,
                                       ),
                                     ),
                                   ],

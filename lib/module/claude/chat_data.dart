@@ -1,7 +1,10 @@
 enum MessageType { text, file, checkout, browser, tool, gen }
 
 /// Status pemanggilan tool oleh AI.
-enum ToolStatus { running, done }
+enum ToolStatus { running, done, failed }
+
+/// Persetujuan hanya aktif selama backend menunggu request yang sama.
+enum ApprovalStatus { pending, approved, denied, expired }
 
 /// Lampiran pesan (disalin dari input bar agar model tetap ringan).
 /// Direpresentasikan ulang di sini agar ChatMsg mandiri JSON.
@@ -36,6 +39,10 @@ class ChatMsg {
   final String? reaction;
   final String? domain;
   final String? total;
+  final String? actionUrl;
+  final String? previewImage;
+  final String? requestId;
+  final ApprovalStatus approvalStatus;
 
   /// Diisi hanya untuk [MessageType.tool].
   final String? toolName;
@@ -62,6 +69,10 @@ class ChatMsg {
     this.reaction,
     this.domain,
     this.total,
+    this.actionUrl,
+    this.previewImage,
+    this.requestId,
+    this.approvalStatus = ApprovalStatus.pending,
     this.toolName,
     this.toolDetail,
     this.toolStatus = ToolStatus.done,
@@ -82,6 +93,10 @@ class ChatMsg {
     String? reaction,
     String? domain,
     String? total,
+    String? actionUrl,
+    String? previewImage,
+    String? requestId,
+    ApprovalStatus? approvalStatus,
     String? toolName,
     String? toolDetail,
     ToolStatus? toolStatus,
@@ -101,6 +116,10 @@ class ChatMsg {
       reaction: reaction ?? this.reaction,
       domain: domain ?? this.domain,
       total: total ?? this.total,
+      actionUrl: actionUrl ?? this.actionUrl,
+      previewImage: previewImage ?? this.previewImage,
+      requestId: requestId ?? this.requestId,
+      approvalStatus: approvalStatus ?? this.approvalStatus,
       toolName: toolName ?? this.toolName,
       toolDetail: toolDetail ?? this.toolDetail,
       toolStatus: toolStatus ?? this.toolStatus,
@@ -123,6 +142,10 @@ class ChatMsg {
       'reaction': reaction,
       'domain': domain,
       'total': total,
+      'actionUrl': actionUrl,
+      'previewImage': previewImage,
+      'requestId': requestId,
+      'approvalStatus': approvalStatus.index,
       'toolName': toolName,
       'toolDetail': toolDetail,
       'toolStatus': toolStatus.index,
@@ -137,27 +160,42 @@ class ChatMsg {
     };
   }
 
+  static ApprovalStatus _restoredApproval(dynamic value) {
+    final int index = value is num ? value.toInt() : 0;
+    if (index <= 0 || index >= ApprovalStatus.values.length) {
+      return ApprovalStatus.expired;
+    }
+    return ApprovalStatus.values[index];
+  }
+
   factory ChatMsg.fromJson(Map<String, dynamic> json) {
     final int typeIndex = (json['type'] as num?)?.toInt() ?? 0;
-    final int statusIndex = (json['toolStatus'] as num?)?.toInt() ?? 1;
+    final int rawStatus = (json['toolStatus'] as num?)?.toInt() ?? 1;
+    // Tidak ada pekerjaan yang tetap hidup setelah sesi dipulihkan.
+    final int statusIndex = rawStatus == ToolStatus.done.index
+        ? ToolStatus.done.index : ToolStatus.failed.index;
     final dynamic rawAttach = json['attachments'];
     return ChatMsg(
       isUser: json['isUser'] == true,
-      type: MessageType.values[
-          typeIndex.clamp(0, MessageType.values.length - 1).toInt()],
+      type: MessageType
+          .values[typeIndex.clamp(0, MessageType.values.length - 1).toInt()],
       text: json['text'] as String? ?? '',
       reaction: json['reaction'] as String?,
       domain: json['domain'] as String?,
       total: json['total'] as String?,
+      actionUrl: json['actionUrl'] as String?,
+      previewImage: json['previewImage'] as String?,
+      requestId: json['requestId'] as String?,
+      // Riwayat tidak boleh menghidupkan ulang permintaan persetujuan.
+      approvalStatus: _restoredApproval(json['approvalStatus']),
       toolName: json['toolName'] as String?,
       toolDetail: json['toolDetail'] as String?,
-      toolStatus: ToolStatus.values[
-          statusIndex.clamp(0, ToolStatus.values.length - 1).toInt()],
+      toolStatus: ToolStatus
+          .values[statusIndex.clamp(0, ToolStatus.values.length - 1).toInt()],
       attachments: rawAttach is List
           ? rawAttach
               .whereType<Map>()
-              .map((e) =>
-                  MsgAttachment.fromJson(Map<String, dynamic>.from(e)))
+              .map((e) => MsgAttachment.fromJson(Map<String, dynamic>.from(e)))
               .toList()
           : const [],
       genKind: (json['genKind'] as num?)?.toInt() ?? 0,
@@ -177,9 +215,8 @@ class ChatMsg {
   }
 }
 
-/// Model data sederhana, mudah diganti ke data asli.
-/// Daftar awal dikosongkan sesuai permintaan (tidak ada dummy).
-const List<ChatMsg> kDummyMessages = [];
+/// Percakapan selalu dimulai kosong; hanya event backend/user yang ditampilkan.
+const List<ChatMsg> kInitialMessages = [];
 
 /// Daftar tool yang bisa dipanggil AI.
 class AiTool {
@@ -223,8 +260,7 @@ class McpServer {
 
 const List<McpServer> kMcpCatalog = [
   McpServer('exa', 'Exa',
-      url: 'https://mcp.exa.ai/mcp',
-      tools: 'web_search_exa, web_fetch_exa'),
+      url: 'https://mcp.exa.ai/mcp', tools: 'web_search_exa, web_fetch_exa'),
   McpServer('fetch', 'fetch'),
   McpServer('filesystem', 'filesystem'),
 ];

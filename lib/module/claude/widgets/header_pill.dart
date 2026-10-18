@@ -1,7 +1,12 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
 import '../app_theme.dart';
+import 'agent_avatar.dart';
 import 'vector_icons.dart';
+
+export 'agent_avatar.dart' show AgentActivity;
 
 /// Tombol menu kiri atas: lingkaran 52, icon 2 garis "=" (CustomPaint),
 /// tekan scale 0.94/100ms tanpa ripple.
@@ -66,10 +71,8 @@ class _MenuLinesPainter extends CustomPainter {
     const double half = 20 / 2;
     final double cx = size.width / 2;
     final double cy = size.height / 2;
-    canvas.drawLine(
-        Offset(cx - half, cy - 3), Offset(cx + half, cy - 3), p);
-    canvas.drawLine(
-        Offset(cx - half, cy + 3), Offset(cx + half, cy + 3), p);
+    canvas.drawLine(Offset(cx - half, cy - 3), Offset(cx + half, cy - 3), p);
+    canvas.drawLine(Offset(cx - half, cy + 3), Offset(cx + half, cy + 3), p);
   }
 
   @override
@@ -104,79 +107,83 @@ class _CircleIconButtonState extends State<_CircleIconButton> {
       child: AnimatedScale(
         scale: _scale,
         duration: AppDims.animFast,
-        child: SizedBox(width: 44, height: 44, child: Center(child: widget.icon)),
+        child:
+            SizedBox(width: 44, height: 44, child: Center(child: widget.icon)),
       ),
     );
   }
 }
 
-/// Popup kecil untuk icon hapus: teks "Delete Message" (aksi) dan
-/// "Tools Calls (Segera Hadir)" (info).
+/// Responsive menu with the one action that is currently implemented.
 Future<void> _showDeletePopup(
-    BuildContext context, VoidCallback onDeleteMessages) {
+    BuildContext context, VoidCallback onDeleteMessages) async {
   final AppColors c = AppColors.of(context);
-  return showDialog(
+  final bool? deleteRequested = await showDialog<bool>(
     context: context,
     barrierColor: Colors.black.withOpacity(0.2),
-    builder: (context) {
-      return Align(
+    builder: (dialogContext) {
+      final Size screen = MediaQuery.sizeOf(dialogContext);
+      final double topInset = MediaQuery.paddingOf(dialogContext).top;
+      final double width = math.min(280, math.max(0, screen.width - 32));
+      final double height = math.max(0, screen.height - topInset - 96);
+      return Dialog(
         alignment: Alignment.topRight,
-        child: DefaultTextStyle(
-          style: const TextStyle(fontFamily: AppDims.fontFamily),
-          child: Container(
-          width: 240,
-          margin: EdgeInsets.only(
-            top: MediaQuery.paddingOf(context).top + 72,
-            right: 16,
-          ),
-          padding:
-              const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-          decoration: BoxDecoration(
-            color: c.surface,
-            borderRadius: BorderRadius.circular(22),
-            boxShadow: [c.shadowFloat],
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onTap: () {
-                  Navigator.of(context).pop();
-                  onDeleteMessages();
-                },
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 10),
-                  child: Row(
-                    children: [
-                      NewChatVectorIcon(size: 20),
-                      const SizedBox(width: 10),
-                      Text('Hapus Pesan',
-                          style: TextStyle(
-                              fontSize: 15, color: c.textPrimary)),
-                    ],
-                  ),
-                ),
+        insetPadding: EdgeInsets.only(
+          top: topInset + 64,
+          right: 16,
+          left: 16,
+          bottom: 16,
+        ),
+        backgroundColor: c.surface,
+        surfaceTintColor: Colors.transparent,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
+        child: ConstrainedBox(
+          constraints: BoxConstraints(maxWidth: width, maxHeight: height),
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            child: TextButton.icon(
+              style: TextButton.styleFrom(
+                foregroundColor: c.pdfRed,
+                alignment: Alignment.centerLeft,
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
               ),
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: 10),
-                child: Row(
-                  children: [
-                    const ToolVectorIcon(size: 18),
-                    const SizedBox(width: 10),
-                    Text('Tools Calls (Segera Hadir)',
-                        style: TextStyle(
-                            fontSize: 15, color: c.textMuted)),
-                  ],
-                ),
-              ),
-            ],
+              onPressed: () => Navigator.of(dialogContext).pop(true),
+              icon: const Icon(Icons.delete_outline_rounded),
+              label: const Text('Hapus semua pesan'),
+            ),
           ),
-          ),
-          ),
+        ),
       );
     },
   );
+  if (deleteRequested != true || !context.mounted) return;
+
+  final bool? confirmed = await showDialog<bool>(
+    context: context,
+    builder: (dialogContext) => AlertDialog(
+      scrollable: true,
+      backgroundColor: c.surface,
+      surfaceTintColor: Colors.transparent,
+      title: Text('Hapus semua pesan?', style: TextStyle(color: c.textPrimary)),
+      content: Text(
+        'Tindakan ini tidak dapat dibatalkan.',
+        style: TextStyle(color: c.textMuted),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(dialogContext).pop(false),
+          child: Text('Batal', style: TextStyle(color: c.textMuted)),
+        ),
+        TextButton(
+          onPressed: () => Navigator.of(dialogContext).pop(true),
+          style: TextButton.styleFrom(foregroundColor: c.pdfRed),
+          child: const Text('Hapus'),
+        ),
+      ],
+    ),
+  );
+  if (confirmed == true && context.mounted) onDeleteMessages();
 }
 
 /// Header: tombol menu kiri + pill Muse tengah + bubble kanan
@@ -184,6 +191,8 @@ Future<void> _showDeletePopup(
 class MuseHeader extends StatelessWidget {
   final String name;
   final String? status;
+  final AgentActivity? activity;
+  final String? statusLabel;
   final VoidCallback? onMenuTap;
   final VoidCallback? onNewChatTap;
   final VoidCallback? onDeleteMessages;
@@ -192,6 +201,8 @@ class MuseHeader extends StatelessWidget {
     super.key,
     this.name = 'Muse',
     this.status,
+    this.activity,
+    this.statusLabel,
     this.onMenuTap,
     this.onNewChatTap,
     this.onDeleteMessages,
@@ -200,6 +211,7 @@ class MuseHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final AppColors c = AppColors.of(context);
+    final String? visibleStatus = statusLabel ?? status;
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -212,56 +224,57 @@ class MuseHeader extends StatelessWidget {
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 200),
             curve: Curves.easeOutCubic,
-            height: status == null ? 56 : 68,
-              padding: const EdgeInsets.symmetric(horizontal: 18),
-              decoration: BoxDecoration(
-                color: c.surface,
-                borderRadius: BorderRadius.circular(999),
-                boxShadow: [c.shadowFloat],
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Container(
-                    width: 44,
-                    height: 44,
-                    decoration: BoxDecoration(
-                      color: c.avatarBg,
-                      shape: BoxShape.circle,
-                    ),
-                    child: Center(
-                      child: Text('M',
+            height: visibleStatus == null ? 56 : 68,
+            padding: const EdgeInsets.symmetric(horizontal: 18),
+            decoration: BoxDecoration(
+              color: c.surface,
+              borderRadius: BorderRadius.circular(999),
+              boxShadow: [c.shadowFloat],
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                activity == null
+                    ? Container(
+                        width: 44,
+                        height: 44,
+                        decoration: BoxDecoration(
+                          color: c.avatarBg,
+                          shape: BoxShape.circle,
+                        ),
+                        child: Center(
+                          child: Text('M',
+                              style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  color: c.textTitle)),
+                        ),
+                      )
+                    : AgentAvatar(activity: activity!, size: 44),
+                const SizedBox(width: 10),
+                Flexible(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                           style: TextStyle(
                               fontWeight: FontWeight.bold,
-                              color: c.textTitle)),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Flexible(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(name,
+                              fontSize: 15,
+                              color: c.textPrimary)),
+                      if (visibleStatus != null)
+                        Text(visibleStatus,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 15,
-                                color: c.textPrimary)),
-                        if (status != null)
-                          Text(status!,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                  fontSize: 13, color: c.textMuted)),
-                      ],
-                    ),
+                            style: TextStyle(fontSize: 13, color: c.textMuted)),
+                    ],
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
           ),
+        ),
         const SizedBox(width: 10),
         Container(
           height: 52,
@@ -280,8 +293,8 @@ class MuseHeader extends StatelessWidget {
               ),
               _CircleIconButton(
                 icon: const MoreDotsVectorIcon(size: 22),
-                onTap: () => _showDeletePopup(
-                    context, () => onDeleteMessages?.call()),
+                onTap: () =>
+                    _showDeletePopup(context, () => onDeleteMessages?.call()),
               ),
             ],
           ),
@@ -290,3 +303,6 @@ class MuseHeader extends StatelessWidget {
     );
   }
 }
+
+/// Backwards-compatible explicit name for the assistant header pill.
+typedef HeaderPill = MuseHeader;

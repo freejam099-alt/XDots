@@ -40,8 +40,7 @@ class _ServerExtrasState extends State<ServerExtras> {
                   fontWeight: FontWeight.bold,
                   color: c.textPrimary)),
           const SizedBox(height: 2),
-          Text(subtitle,
-              style: TextStyle(fontSize: 12.5, color: c.textMuted)),
+          Text(subtitle, style: TextStyle(fontSize: 12.5, color: c.textMuted)),
           const SizedBox(height: 12),
           child,
         ],
@@ -54,8 +53,8 @@ class _ServerExtrasState extends State<ServerExtras> {
         child: Row(
           children: [
             Expanded(
-                child: Container(
-                    height: 1, color: c.textMuted.withOpacity(0.18))),
+                child:
+                    Container(height: 1, color: c.textMuted.withOpacity(0.18))),
           ],
         ),
       );
@@ -103,8 +102,7 @@ class _ServerExtrasState extends State<ServerExtras> {
                   children: [
                     Expanded(
                       child: Text('Aktifkan Dot Browser',
-                          style:
-                              TextStyle(fontSize: 15, color: c.textPrimary)),
+                          style: TextStyle(fontSize: 15, color: c.textPrimary)),
                     ),
                     Switch.adaptive(
                       value: ModelStore.toolEnabled('dot_browser'),
@@ -206,13 +204,11 @@ class _SearchToggleRowState extends State<_SearchToggleRow> {
   @override
   Widget build(BuildContext context) {
     final AppColors c = AppColors.of(context);
-    final bool enabled =
-        ModelStore.searchEnabled(widget.service.id);
+    final bool enabled = ModelStore.searchEnabled(widget.service.id);
     final bool needKey = widget.service.id != 'dot_browsing';
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
-      padding:
-          const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
       decoration: BoxDecoration(
         color: c.surface,
         borderRadius: BorderRadius.circular(22),
@@ -226,8 +222,7 @@ class _SearchToggleRowState extends State<_SearchToggleRow> {
               const SizedBox(width: 10),
               Expanded(
                 child: Text(widget.service.label,
-                    style: TextStyle(
-                        fontSize: 15, color: c.textPrimary)),
+                    style: TextStyle(fontSize: 15, color: c.textPrimary)),
               ),
               Switch.adaptive(
                 value: enabled,
@@ -246,12 +241,10 @@ class _SearchToggleRowState extends State<_SearchToggleRow> {
               child: TextField(
                 controller: _keyController,
                 obscureText: true,
-                style: TextStyle(
-                    fontSize: 14, color: c.textPrimary),
+                style: TextStyle(fontSize: 14, color: c.textPrimary),
                 decoration: InputDecoration(
                   hintText: 'API Key ${widget.service.label}',
-                  hintStyle: TextStyle(
-                      fontSize: 14, color: c.textHint),
+                  hintStyle: TextStyle(fontSize: 14, color: c.textHint),
                   border: InputBorder.none,
                   isDense: true,
                   contentPadding: EdgeInsets.zero,
@@ -288,8 +281,7 @@ class _McpToggleRowState extends State<_McpToggleRow> {
     final AppColors c = AppColors.of(context);
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
-      padding:
-          const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
         color: c.surface,
         borderRadius: BorderRadius.circular(22),
@@ -304,14 +296,12 @@ class _McpToggleRowState extends State<_McpToggleRow> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(widget.label,
-                    style: TextStyle(
-                        fontSize: 15, color: c.textPrimary)),
+                    style: TextStyle(fontSize: 15, color: c.textPrimary)),
                 if ((widget.subtitle ?? '').isNotEmpty)
                   Text(widget.subtitle!,
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
-                      style:
-                          TextStyle(fontSize: 11.5, color: c.textMuted)),
+                      style: TextStyle(fontSize: 11.5, color: c.textMuted)),
               ],
             ),
           ),
@@ -323,13 +313,12 @@ class _McpToggleRowState extends State<_McpToggleRow> {
               },
               child: Padding(
                 padding: const EdgeInsets.all(6),
-                child: Icon(Icons.delete_outline,
-                    size: 18, color: c.pdfRed),
+                child: Icon(Icons.delete_outline, size: 18, color: c.pdfRed),
               ),
             ),
           Switch.adaptive(
-            value: ModelStore.mcpEnabled(widget.id,
-                defValue: widget.id == 'exa'),
+            value:
+                ModelStore.mcpEnabled(widget.id, defValue: widget.id == 'exa'),
             activeColor: c.accent,
             onChanged: (v) {
               ModelStore.setMcpEnabled(widget.id, v);
@@ -375,12 +364,10 @@ class _AddCustomMcpRowState extends State<_AddCustomMcpRow> {
             child: Center(
               child: TextField(
                 controller: _controller,
-                style: TextStyle(
-                    fontSize: 15, color: c.textPrimary),
+                style: TextStyle(fontSize: 15, color: c.textPrimary),
                 decoration: InputDecoration(
                   hintText: 'Endpoint MCP manual',
-                  hintStyle: TextStyle(
-                      fontSize: 15, color: c.textHint),
+                  hintStyle: TextStyle(fontSize: 15, color: c.textHint),
                   border: InputBorder.none,
                   isDense: true,
                   contentPadding: EdgeInsets.zero,
@@ -471,7 +458,15 @@ class CustomEndpointCardState extends State<CustomEndpointCard> {
     } catch (e) {
       info = 'Tersimpan, tapi gagal ambil model: ${MuseAi.friendlyError(e)}';
     }
-    await HiveBox().openAIConfig.put(time.toString(), bean);
+    try {
+      await HiveBox().openAIConfig.put(time.toString(), bean);
+    } catch (_) {
+      if (mounted) {
+        setState(() => _busy = false);
+        'Gagal menyimpan provider'.toast();
+      }
+      return;
+    }
     if (!mounted) return;
     setState(() => _busy = false);
     _name.clear();

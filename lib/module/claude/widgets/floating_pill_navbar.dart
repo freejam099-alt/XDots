@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'dart:math' as math;
 
 import '../app_theme.dart';
 
@@ -37,93 +38,84 @@ class FloatingPillNavbar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final AppColors c = AppColors.of(context);
-    final double pillWidth =
-        MediaQuery.of(context).size.width * AppDims.pillWidthFactor;
-    return Center(
-      child: Container(
-        width: pillWidth,
-        height: AppDims.pillHeight,
-        decoration: ShapeDecoration(
-          color: c.pillBg,
-          shape: const StadiumBorder(),
-          shadows: [c.shadowNav],
-        ),
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            // Tiap ikon menempati satu slot sama lebar, indikator
-            // memakai slot yang sama -> selalu pas di tengah ikon.
-            final double slotW = constraints.maxWidth / icons.length;
-            return Stack(
-              children: [
-                AnimatedPositioned(
-                  duration: AppDims.animNav,
-                  curve: Curves.easeOutCubic,
-                  left: currentIndex * slotW +
-                      (slotW - AppDims.indicatorDiameter) / 2,
-                  top: (AppDims.pillHeight - AppDims.indicatorDiameter) / 2,
-                  child: Container(
-                    width: AppDims.indicatorDiameter,
-                    height: AppDims.indicatorDiameter,
-                    decoration: BoxDecoration(
-                      color: c.indicatorBg,
-                      shape: BoxShape.circle,
-                    ),
-                  ),
-                ),
-                Row(
-                  children: List.generate(icons.length, (i) {
-                    return SizedBox(
-                      width: slotW,
-                      height: AppDims.pillHeight,
-                      child: _PressScale(
-                        onTap: () => onTap(i),
-                        child: Center(
-                          child: SizedBox(
-                            width: 24,
-                            height: 24,
-                            child: icons[i],
+    const labels = ['Chat', 'Prompt', 'Ruang Kreasi', 'Server', 'Pengaturan'];
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        // A percentage-only width becomes an oversized strip on tablets and
+        // can exceed a parent with side insets. Keep it centered and bounded.
+        final double pillWidth = math.min(
+          430,
+          math.min(
+            constraints.maxWidth,
+            MediaQuery.sizeOf(context).width * AppDims.pillWidthFactor,
+          ),
+        );
+        return Center(
+          child: SizedBox(
+            width: pillWidth,
+            height: AppDims.pillHeight,
+            child: DecoratedBox(
+              decoration: ShapeDecoration(
+                color: c.pillBg,
+                shape: const StadiumBorder(),
+                shadows: [c.shadowNav],
+              ),
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  // Every icon and the indicator share an equal slot.
+                  final double slotW = constraints.maxWidth / icons.length;
+                  return Stack(
+                    children: [
+                      AnimatedPositioned(
+                        duration: AppDims.animNav,
+                        curve: Curves.easeOutCubic,
+                        left: currentIndex * slotW +
+                            (slotW - AppDims.indicatorDiameter) / 2,
+                        top: (AppDims.pillHeight - AppDims.indicatorDiameter) /
+                            2,
+                        child: IgnorePointer(
+                          child: Container(
+                            width: AppDims.indicatorDiameter,
+                            height: AppDims.indicatorDiameter,
+                            decoration: BoxDecoration(
+                              color: c.indicatorBg,
+                              shape: BoxShape.circle,
+                            ),
                           ),
                         ),
                       ),
-                    );
-                  }),
-                ),
-              ],
-            );
-          },
-        ),
-      ),
-    );
-  }
-}
-
-class _PressScale extends StatefulWidget {
-  final Widget child;
-  final VoidCallback onTap;
-  const _PressScale({required this.child, required this.onTap});
-
-  @override
-  State<_PressScale> createState() => _PressScaleState();
-}
-
-class _PressScaleState extends State<_PressScale> {
-  double _scale = 1.0;
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTapDown: (_) => setState(() => _scale = 0.92),
-      onTapUp: (_) {
-        setState(() => _scale = 1.0);
-        widget.onTap();
+                      Row(
+                        children: List.generate(icons.length, (i) {
+                          return SizedBox(
+                            width: slotW,
+                            height: AppDims.pillHeight,
+                            child: Center(
+                              child: IconButton(
+                                tooltip: labels[i],
+                                constraints: const BoxConstraints.tightFor(
+                                  width: 48,
+                                  height: 48,
+                                ),
+                                padding: EdgeInsets.zero,
+                                onPressed: () => onTap(i),
+                                icon: SizedBox(
+                                  width: 24,
+                                  height: 24,
+                                  child: icons[i],
+                                ),
+                              ),
+                            ),
+                          );
+                        }),
+                      ),
+                    ],
+                  );
+                },
+              ),
+            ),
+          ),
+        );
       },
-      onTapCancel: () => setState(() => _scale = 1.0),
-      child: AnimatedScale(
-        scale: _scale,
-        duration: AppDims.animFast,
-        child: widget.child,
-      ),
     );
   }
 }

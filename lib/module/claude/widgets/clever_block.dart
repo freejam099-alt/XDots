@@ -17,9 +17,15 @@ bool _isImageUrl(String url) {
 
 bool _isVideoUrl(String url) {
   final String u = url.toLowerCase();
-  return u.endsWith('.mp4') ||
-      u.endsWith('.mov') ||
-      u.endsWith('.webm') ||
+  String path;
+  try {
+    path = Uri.parse(url).path.toLowerCase();
+  } catch (_) {
+    path = u;
+  }
+  return path.endsWith('.mp4') ||
+      path.endsWith('.mov') ||
+      path.endsWith('.webm') ||
       u.contains('youtube.com/watch') ||
       u.contains('youtu.be/') ||
       u.contains('vimeo.com/');
@@ -160,8 +166,7 @@ class _LinkBlock extends _Block {
 }
 
 Future<void> _openUrl(String url) {
-  return launchUrl(Uri.parse(url),
-      mode: LaunchMode.externalApplication);
+  return launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
 }
 
 class _LinkCard extends StatelessWidget {
@@ -191,8 +196,7 @@ class _LinkCard extends StatelessWidget {
                 color: const Color(0xFFE3F0FD),
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: Icon(Icons.public,
-                  color: c.accent, size: 22),
+              child: Icon(Icons.public, color: c.accent, size: 22),
             ),
             const SizedBox(width: 10),
             Expanded(
@@ -211,16 +215,14 @@ class _LinkCard extends StatelessWidget {
                   ),
                   Text(
                     url,
-                    style: TextStyle(
-                        fontSize: 13, color: c.textMuted),
+                    style: TextStyle(fontSize: 13, color: c.textMuted),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
                 ],
               ),
             ),
-            Icon(Icons.open_in_new,
-                size: 18, color: c.textMuted),
+            Icon(Icons.open_in_new, size: 18, color: c.textMuted),
           ],
         ),
       ),
@@ -265,8 +267,7 @@ class _ImageCard extends StatelessWidget {
               height: height,
               color: c.surfaceSoft,
               child: Center(
-                child: Icon(Icons.broken_image_outlined,
-                    color: c.textMuted),
+                child: Icon(Icons.broken_image_outlined, color: c.textMuted),
               ),
             );
           },
@@ -318,16 +319,14 @@ class _VideoCard extends StatelessWidget {
         child: Stack(
           alignment: Alignment.center,
           children: [
-            const Icon(Icons.play_circle_fill,
-                size: 56, color: Colors.white),
+            const Icon(Icons.play_circle_fill, size: 56, color: Colors.white),
             Positioned(
               left: 12,
               bottom: 10,
               right: 12,
               child: Text(
                 _domainOf(url),
-                style: const TextStyle(
-                    fontSize: 13, color: Colors.white70),
+                style: const TextStyle(fontSize: 13, color: Colors.white70),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),
@@ -349,7 +348,18 @@ Future<void> _previewImage(BuildContext context, String url) {
         child: ClipRRect(
           borderRadius: BorderRadius.circular(14),
           child: InteractiveViewer(
-            child: Image.network(url, fit: BoxFit.contain),
+            child: Image.network(
+              url,
+              fit: BoxFit.contain,
+              errorBuilder: (context, error, stackTrace) {
+                final AppColors c = AppColors.of(context);
+                return Container(
+                  color: c.surfaceSoft,
+                  padding: const EdgeInsets.all(32),
+                  child: Icon(Icons.broken_image_outlined, color: c.textMuted),
+                );
+              },
+            ),
           ),
         ),
       );

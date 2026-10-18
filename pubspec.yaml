@@ -63,6 +63,8 @@ dependencies:
   speech_to_text: ^6.6.0
   file_picker: ^8.0.0
 dev_dependencies:
+  flutter_test:
+    sdk: flutter
   flutter_lints: ^2.0.0
   #flutter pub run flutter_launcher_icons
   flutter_launcher_icons: "^0.13.1"
@@ -89,6 +91,7 @@ flutter:
     - assets/images/
     - assets/file_icons/
     - assets/lottie/
+    - assets/licenses/
   fonts:
     - family: XDot
       fonts:

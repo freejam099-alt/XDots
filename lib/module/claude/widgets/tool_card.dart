@@ -1,14 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:loading_animation_widget/loading_animation_widget.dart';
 
 import '../app_theme.dart';
 import '../chat_data.dart';
+import 'cards.dart';
 import 'vector_icons.dart';
 
-/// Icon berbeda untuk tiap kategori tool call:
-/// gambar/video/tools_use -> ToolVectorIcon,
-/// browsing -> BrowsingVectorIcon (diperkecil),
-/// MCP -> McpVectorIcon.
 Widget toolIconFor(String toolId, {double size = 18}) {
   final String id = toolId.toLowerCase();
   if (id.startsWith('tools_browsing') ||
@@ -18,124 +14,151 @@ Widget toolIconFor(String toolId, {double size = 18}) {
       id.contains('tavily') ||
       id.contains('doubao') ||
       id.contains('firecrawl')) {
-    return const BrowsingVectorIcon(size: 16);
+    return BrowsingVectorIcon(size: size);
   }
-  if (id.startsWith('mcp') || id.contains('mcp') || id.contains('exa') || id.startsWith('web_')) {
+  if (id.contains('mcp') || id.contains('exa') || id.startsWith('web_')) {
     return McpVectorIcon(size: size);
   }
   return ToolVectorIcon(size: size);
 }
 
-/// Nama tool yang tampil: lewat 5 karakter langsung "...".
-String shortToolName(String name) {
-  if (name.length > 5) return '${name.substring(0, 5)}...';
-  return name;
+/// Nama asli tidak dipotong menjadi lima karakter yang tidak bisa dikenali.
+String shortToolName(String name) => name;
+
+String toolActivityLabel(String name, ToolStatus status) {
+  final bool web = name.startsWith('dot_') || name.startsWith('web_');
+  if (status == ToolStatus.failed) return 'Tindakan gagal';
+  if (status == ToolStatus.done)
+    return web ? 'Penelusuran selesai' : 'Tindakan selesai';
+  if (name == 'dot_read' || name == 'web_fetch_exa') return 'Membaca halaman';
+  return web ? 'Menelusuri web' : 'Menjalankan tindakan';
 }
 
-/// Baris pemanggilan tool AI: icon kecil sejajar teks,
-/// nama + ID tool, status animasi -> centang.
+/// Terhubung pada status backend; isi hasil hanya muncul bila benar-benar ada.
 class ToolCallCard extends StatelessWidget {
   final String toolName;
   final String? detail;
+  final String? result;
   final ToolStatus status;
   final bool? enabled;
   final ValueChanged<bool>? onToggle;
 
-  const ToolCallCard({
-    super.key,
-    required this.toolName,
-    this.detail,
-    this.status = ToolStatus.done,
-    this.enabled,
-    this.onToggle,
-  });
+  const ToolCallCard(
+      {super.key,
+      required this.toolName,
+      this.detail,
+      this.result,
+      this.status = ToolStatus.done,
+      this.enabled,
+      this.onToggle});
 
   @override
   Widget build(BuildContext context) {
     final AppColors c = AppColors.of(context);
-    final String full =
-        detail == null || detail!.isEmpty ? toolName : '$toolName · $detail';
     final bool toggle = enabled != null && onToggle != null;
+    final bool running = status == ToolStatus.running;
+    final bool failed = status == ToolStatus.failed;
+    final bool reduceMotion =
+        MediaQuery.maybeOf(context)?.disableAnimations ?? false;
+    final Color statusColor = failed ? c.pdfRed : c.accent;
     final Widget card = Container(
-      width: toggle ? double.infinity : null,
-      constraints: const BoxConstraints(maxWidth: 280),
-      padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 7),
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: c.surface,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [c.shadowFloat],
-      ),
-      child: Row(
-        mainAxisSize: toggle ? MainAxisSize.max : MainAxisSize.min,
-        children: [
-          toolIconFor(toolName, size: 16),
-          const SizedBox(width: 8),
-          Flexible(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                // Nama tool: berganti dengan muncul dari bawah
-                // setiap AI ganti tool yang dipanggil.
-                AnimatedSwitcher(
-                  duration: AppDims.animNav,
-                  switchInCurve: Curves.easeOutCubic,
-                  switchOutCurve: Curves.easeOutCubic,
-                  transitionBuilder: (child, animation) {
-                    final CurvedAnimation curved = CurvedAnimation(
-                      parent: animation,
-                      curve: Curves.easeOutCubic,
-                    );
-                    return ClipRect(
-                      child: SlideTransition(
-                        position: Tween<Offset>(
-                          begin: const Offset(0, 1),
-                          end: Offset.zero,
-                        ).animate(curved),
-                        child: FadeTransition(
-                            opacity: curved, child: child),
-                      ),
-                    );
-                  },
-                  child: Text(
-                    shortToolName(toolName),
-                    key: ValueKey<String>(toolName),
+          color: c.surface,
+          borderRadius: BorderRadius.circular(22),
+          border:
+              Border.all(color: statusColor.withOpacity(running ? 0.18 : 0.08)),
+          boxShadow: [c.shadowFloat]),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          Container(
+              padding: const EdgeInsets.all(9),
+              decoration: BoxDecoration(
+                  color: c.globeBox, borderRadius: BorderRadius.circular(12)),
+              child: toolIconFor(toolName, size: 19)),
+          const SizedBox(width: 10),
+          Expanded(
+              child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                Text(toggle ? toolName : toolActivityLabel(toolName, status),
                     style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      color: c.textPrimary,
-                    ),
-                  ),
-                ),
-                Text(
-                  full,
-                  style: TextStyle(fontSize: 11, color: c.textMuted),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ],
-            ),
-          ),
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                        color: c.textPrimary)),
+                const SizedBox(height: 3),
+                Text(toggle ? (detail ?? '') : toolName,
+                    style: TextStyle(fontSize: 12, color: c.textMuted),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis),
+              ])),
           const SizedBox(width: 8),
-          if (status == ToolStatus.running)
-            LoadingAnimationWidget.prograssiveDots(
-              color: c.accent,
-              size: 16,
-            )
-          else
-            Icon(Icons.check_circle, size: 16, color: c.accent),
-          if (toggle) ...[
-            const SizedBox(width: 4),
+          if (!toggle)
+            Semantics(
+                label: running
+                    ? 'Sedang berjalan'
+                    : failed
+                        ? 'Gagal'
+                        : 'Selesai',
+                liveRegion: true,
+                child: running && !reduceMotion
+                    ? SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(
+                            strokeWidth: 2, color: statusColor))
+                    : Icon(
+                        running
+                            ? Icons.more_horiz
+                            : failed
+                                ? Icons.error_outline
+                                : Icons.check_circle_outline,
+                        color: statusColor,
+                        size: 20)),
+          if (toggle)
             Switch.adaptive(
-              value: enabled!,
-              onChanged: onToggle,
-              activeColor: c.accent,
-            ),
-          ],
-        ],
-      ),
+                value: enabled!, onChanged: onToggle, activeColor: c.accent),
+        ]),
+        if (!toggle && detail != null && detail!.isNotEmpty)
+          Padding(
+              padding: const EdgeInsets.only(top: 10),
+              child: Text(detail!,
+                  maxLines: running ? 3 : 5,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                      fontSize: 14, height: 1.4, color: c.textMuted))),
+        if (!toggle && webActionUri(detail) != null)
+          TextButton.icon(
+              onPressed: () => openWebAction(context, detail),
+              icon: const Icon(Icons.open_in_new, size: 16),
+              label: const Text('Buka browser')),
+        if (!toggle && result != null && result!.trim().isNotEmpty)
+          Theme(
+              data:
+                  Theme.of(context).copyWith(dividerColor: Colors.transparent),
+              child: ExpansionTile(
+                tilePadding: EdgeInsets.zero,
+                childrenPadding: EdgeInsets.zero,
+                title: Text(failed ? 'Lihat detail kegagalan' : 'Lihat hasil',
+                    style: TextStyle(fontSize: 13, color: c.textMuted)),
+                children: [
+                  ConstrainedBox(
+                      constraints: const BoxConstraints(maxHeight: 240),
+                      child: SingleChildScrollView(
+                          child: SelectableText(result!,
+                              style: TextStyle(
+                                  fontSize: 13,
+                                  height: 1.45,
+                                  color: c.textPrimary))))
+                ],
+              )),
+      ]),
     );
     if (toggle) return card;
-    return Align(alignment: Alignment.centerLeft, child: card);
+    return Align(
+        alignment: Alignment.centerLeft,
+        child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 480), child: card));
   }
 }

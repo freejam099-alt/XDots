@@ -4,6 +4,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'typography.dart';
 import '../generated/l10n.dart';
 import '../utils/sp_util.dart';
 
@@ -36,8 +37,9 @@ Locale getLocaleByDefaultCode() {
     }
   }
 
-  return S.delegate.supportedLocales
-      .firstWhere((element) => element.languageCode == resultCode, orElse: () => WidgetsBinding.instance.window.locale);
+  return S.delegate.supportedLocales.firstWhere(
+      (element) => element.languageCode == resultCode,
+      orElse: () => WidgetsBinding.instance.window.locale);
 }
 
 Locale getLocaleByCode(String code) {
@@ -53,8 +55,9 @@ Locale getLocaleByCode(String code) {
     }
   }
 
-  return S.delegate.supportedLocales
-      .firstWhere((element) => element.languageCode == resultCode, orElse: () => WidgetsBinding.instance.window.locale);
+  return S.delegate.supportedLocales.firstWhere(
+      (element) => element.languageCode == resultCode,
+      orElse: () => WidgetsBinding.instance.window.locale);
 }
 
 Map<String, String> getLocaleLanguages() {
@@ -96,7 +99,8 @@ String getLocaleNameByCode(String code) {
   return "English";
 }
 
-final globalLanguageProvider = StateNotifierProvider<GlobalLanguageModel, String>((ref) {
+final globalLanguageProvider =
+    StateNotifierProvider<GlobalLanguageModel, String>((ref) {
   return GlobalLanguageModel(HiveBox().globalLanguageCode);
 });
 
@@ -115,8 +119,10 @@ class GlobalLanguageModel extends StateNotifier<String> {
   }
 }
 
-final primaryColorProvider = StateNotifierProvider<PrimaryColorNotify, Color>((ref) {
-  return PrimaryColorNotify(Color(int.parse(HiveBox().primaryColor, radix: 16)));
+final primaryColorProvider =
+    StateNotifierProvider<PrimaryColorNotify, Color>((ref) {
+  return PrimaryColorNotify(
+      Color(int.parse(HiveBox().primaryColor, radix: 16)));
 });
 
 class PrimaryColorNotify extends StateNotifier<Color> {
@@ -125,7 +131,9 @@ class PrimaryColorNotify extends StateNotifier<Color> {
   void change(Color t) {
     if (t == state) return;
     state = t;
-    HiveBox().appConfig.put(HiveBox.cAppConfigPrimaryColor, t.value.toRadixString(16));
+    HiveBox()
+        .appConfig
+        .put(HiveBox.cAppConfigPrimaryColor, t.value.toRadixString(16));
   }
 
   Color get color => state;
@@ -139,6 +147,12 @@ enum ThemeType {
   light,
   dark,
   system;
+
+  ThemeMode get materialMode => switch (this) {
+        ThemeType.light => ThemeMode.light,
+        ThemeType.dark => ThemeMode.dark,
+        ThemeType.system => ThemeMode.system,
+      };
 
   static ThemeType getType(int type) {
     switch (type) {
@@ -161,7 +175,8 @@ BaseTheme _getThemeByType(int themeType) {
     case 1:
       return DarkTheme();
     case 2:
-      var brightness = SchedulerBinding.instance.platformDispatcher.platformBrightness;
+      var brightness =
+          SchedulerBinding.instance.platformDispatcher.platformBrightness;
       bool isDarkMode = brightness == Brightness.dark;
       if (isDarkMode) {
         return DarkTheme();
@@ -178,7 +193,8 @@ class ThemeViewModel extends StateNotifier<BaseTheme> {
     state = _getThemeByType(type);
   }
 
-  ThemeType get type => ThemeType.getType(SpUtil.getInt(spLightTheme, defValue: ThemeType.system.index));
+  ThemeType get type => ThemeType.getType(
+      SpUtil.getInt(spLightTheme, defValue: ThemeType.system.index));
 
   void change(int t) {
     state = _getThemeByType(t);
@@ -218,7 +234,7 @@ abstract class BaseTheme {
 class LightTheme extends BaseTheme {
   @override
   ThemeData theme(Color primaryColor) {
-    return ThemeData.light().copyWith(
+    return withXDotFont(ThemeData.light().copyWith(
       colorScheme: ColorScheme.light(
         primary: primaryColor,
         secondary: primaryColor,
@@ -329,7 +345,7 @@ class LightTheme extends BaseTheme {
           TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
         },
       ),
-    );
+    ));
   }
 
   @override
@@ -381,7 +397,7 @@ class LightTheme extends BaseTheme {
 class DarkTheme extends BaseTheme {
   @override
   ThemeData theme(Color primaryColor) {
-    return ThemeData.dark().copyWith(
+    return withXDotFont(ThemeData.dark().copyWith(
       colorScheme: ColorScheme.dark(
           primary: primaryColor,
           secondary: primaryColor,
@@ -494,7 +510,7 @@ class DarkTheme extends BaseTheme {
           TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
         },
       ),
-    );
+    ));
   }
 
   @override

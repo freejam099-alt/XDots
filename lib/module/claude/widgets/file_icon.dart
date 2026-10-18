@@ -4,8 +4,7 @@ import 'package:flutter/material.dart';
 /// (disalin dari folder School di perangkat).
 String fileIconAsset(String filename) {
   final List<String> parts = filename.split('.');
-  final String ext =
-      parts.length > 1 ? parts.last.toLowerCase() : '';
+  final String ext = parts.length > 1 ? parts.last.toLowerCase() : '';
   switch (ext) {
     case 'pdf':
       return 'assets/file_icons/ic_file_pdf.png';
@@ -44,7 +43,7 @@ String fileIconAsset(String filename) {
     case 'bmp':
       return 'assets/file_icons/ic_png_jpg_dll.png';
     default:
-      return 'assets/file_icons/ic_file_docx.png';
+      return '';
   }
 }
 
@@ -56,8 +55,12 @@ class FileIconImage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final String asset = fileIconAsset(filename);
+    if (asset.isEmpty) {
+      return Icon(Icons.insert_drive_file_outlined, size: size);
+    }
     return Image.asset(
-      fileIconAsset(filename),
+      asset,
       width: size,
       height: size,
       fit: BoxFit.contain,

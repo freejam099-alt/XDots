@@ -25,8 +25,7 @@ class ChatAttachment {
     required this.name,
   });
 
-  bool get isImage =>
-      kind == AttachKind.photo || kind == AttachKind.camera;
+  bool get isImage => kind == AttachKind.photo || kind == AttachKind.camera;
 
   bool get isVideo => kind == AttachKind.video;
 
@@ -37,8 +36,8 @@ class ChatAttachment {
   factory ChatAttachment.fromJson(Map<String, dynamic> json) {
     final int kindIndex = (json['kind'] as num?)?.toInt() ?? 0;
     return ChatAttachment(
-      kind: AttachKind.values[
-          kindIndex.clamp(0, AttachKind.values.length - 1).toInt()],
+      kind: AttachKind
+          .values[kindIndex.clamp(0, AttachKind.values.length - 1).toInt()],
       path: json['path'] as String? ?? '',
       name: json['name'] as String? ?? '',
     );
@@ -56,8 +55,7 @@ class ChatInputController extends TextEditingController {
   }
 
   void removeAttachment(ChatAttachment a) {
-    attachments.value =
-        attachments.value.where((e) => e != a).toList();
+    attachments.value = attachments.value.where((e) => e != a).toList();
   }
 
   void clearAttachments() {
@@ -151,11 +149,17 @@ class _ChatInputBarState extends State<ChatInputBar> {
             });
           },
         );
+        if (!mounted) {
+          await _speech.cancel();
+          return;
+        }
         if (_speechReady) {
           final stt.LocaleName? sys = await _speech.systemLocale();
+          if (!mounted) return;
           _voiceLocale = sys?.localeId;
         }
       }
+      if (!mounted) return;
       if (!_speechReady) {
         'Pengenalan suara tidak tersedia atau izin mikrofon ditolak'.toast();
         return;
@@ -166,10 +170,11 @@ class _ChatInputBarState extends State<ChatInputBar> {
       setState(() => _listening = true);
       await _speech.listen(
         onResult: (dynamic r) {
+          if (!mounted) return;
           final String words = (r.recognizedWords as String?) ?? '';
           widget.controller.text = '$_voiceBase$sep$words';
-          widget.controller.selection = TextSelection.collapsed(
-              offset: widget.controller.text.length);
+          widget.controller.selection =
+              TextSelection.collapsed(offset: widget.controller.text.length);
         },
         localeId: _voiceLocale,
         listenFor: const Duration(minutes: 2),
@@ -379,24 +384,21 @@ class _ChatInputBarState extends State<ChatInputBar> {
       final ImagePicker picker = ImagePicker();
       switch (kind) {
         case AttachKind.photo:
-          final XFile? f =
-              await picker.pickImage(source: ImageSource.gallery);
+          final XFile? f = await picker.pickImage(source: ImageSource.gallery);
           if (f != null) {
             _inputCtrl?.addAttachment(ChatAttachment(
                 kind: AttachKind.photo, path: f.path, name: f.name));
           }
           break;
         case AttachKind.camera:
-          final XFile? f =
-              await picker.pickImage(source: ImageSource.camera);
+          final XFile? f = await picker.pickImage(source: ImageSource.camera);
           if (f != null) {
             _inputCtrl?.addAttachment(ChatAttachment(
                 kind: AttachKind.camera, path: f.path, name: f.name));
           }
           break;
         case AttachKind.video:
-          final XFile? f =
-              await picker.pickVideo(source: ImageSource.gallery);
+          final XFile? f = await picker.pickVideo(source: ImageSource.gallery);
           if (f != null) {
             _inputCtrl?.addAttachment(ChatAttachment(
                 kind: AttachKind.video, path: f.path, name: f.name));
@@ -442,9 +444,7 @@ class _ChatInputBarState extends State<ChatInputBar> {
         decoration: BoxDecoration(
           color: c.surface,
           borderRadius: BorderRadius.circular(
-            multiLine
-                ? AppDims.inputRadiusMulti
-                : AppDims.inputRadiusSingle,
+            multiLine ? AppDims.inputRadiusMulti : AppDims.inputRadiusSingle,
           ),
           boxShadow: [c.shadowFloat],
         ),
@@ -496,7 +496,8 @@ class _ChatInputBarState extends State<ChatInputBar> {
                             color: c.textPrimary,
                           ),
                           decoration: InputDecoration(
-                            hintText: _listening ? 'Mendengarkan...' : widget.hint,
+                            hintText:
+                                _listening ? 'Mendengarkan...' : widget.hint,
                             hintStyle: TextStyle(
                               fontSize: AppDims.chatFontSize,
                               color: c.textHint,
@@ -632,8 +633,7 @@ class _ChatInputBarState extends State<ChatInputBar> {
           height: 56,
           color: c.textPrimary,
           child: const Center(
-            child:
-                Icon(Icons.play_arrow, color: Colors.white, size: 28),
+            child: Icon(Icons.play_arrow, color: Colors.white, size: 28),
           ),
         ),
       );
@@ -682,8 +682,7 @@ class _ChatInputBarState extends State<ChatInputBar> {
                 color: c.textMuted,
                 shape: BoxShape.circle,
               ),
-              child: const Icon(Icons.close,
-                  size: 13, color: Colors.white),
+              child: const Icon(Icons.close, size: 13, color: Colors.white),
             ),
           ),
         ),
@@ -706,15 +705,12 @@ class _AttachRow extends StatelessWidget {
       behavior: HitTestBehavior.opaque,
       onTap: onTap,
       child: Padding(
-        padding:
-            const EdgeInsets.symmetric(horizontal: 18, vertical: 13),
+        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 13),
         child: Row(
           children: [
             icon,
             const SizedBox(width: 14),
-            Text(label,
-                style:
-                    TextStyle(fontSize: 16, color: c.textPrimary)),
+            Text(label, style: TextStyle(fontSize: 16, color: c.textPrimary)),
           ],
         ),
       ),

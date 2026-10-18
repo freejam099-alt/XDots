@@ -19,6 +19,7 @@ class MarkdownBubble extends StatelessWidget {
 
   TextStyle _body(AppColors c) {
     return TextStyle(
+      fontFamily: AppDims.fontFamily,
       fontSize: AppDims.chatFontSize,
       height: AppDims.chatLineHeight,
       color: c.textPrimary,
@@ -69,8 +70,7 @@ class MarkdownBubble extends StatelessWidget {
       },
       onTapLink: (text, href, title) {
         if (href == null) return;
-        launchUrl(Uri.parse(href),
-            mode: LaunchMode.externalApplication);
+        launchUrl(Uri.parse(href), mode: LaunchMode.externalApplication);
       },
       imageBuilder: (uri, title, alt) {
         return Padding(
@@ -85,8 +85,8 @@ class MarkdownBubble extends StatelessWidget {
                   height: 120,
                   color: c.surfaceSoft,
                   child: Center(
-                    child: Icon(Icons.broken_image_outlined,
-                        color: c.textMuted),
+                    child:
+                        Icon(Icons.broken_image_outlined, color: c.textMuted),
                   ),
                 );
               },
@@ -168,8 +168,7 @@ class _CodeBlock extends StatelessWidget {
               onTap: () => code.toClipboard(),
               child: Padding(
                 padding: const EdgeInsets.all(6),
-                child: Icon(Icons.copy_outlined,
-                    size: 16, color: c.textMuted),
+                child: Icon(Icons.copy_outlined, size: 16, color: c.textMuted),
               ),
             ),
           ),

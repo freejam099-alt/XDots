@@ -3,6 +3,7 @@ import 'package:flutter_highlighter/flutter_highlighter.dart';
 import 'package:flutter_highlighter/themes/atom-one-dark.dart';
 import 'package:flutter_highlighter/themes/atom-one-light.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
+import '../typography.dart';
 
 import '../../base.dart';
 import 'package:markdown/markdown.dart' as md;
@@ -14,24 +15,25 @@ class ChatMarkDown extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final TextStyle? markdownTextStyle = Theme.of(context)
+        .textTheme
+        .titleMedium
+        ?.copyWith(fontFamily: xDotFontFamily);
     MarkdownStyleSheet styleSheet = MarkdownStyleSheet(
-      p: Theme.of(context).textTheme.titleMedium?.copyWith(color: Theme.of(context).textTheme.titleMedium?.color),
-      h1: Theme.of(context).textTheme.titleMedium?.copyWith(color: Theme.of(context).textTheme.titleMedium?.color),
-      h2: Theme.of(context).textTheme.titleMedium?.copyWith(color: Theme.of(context).textTheme.titleMedium?.color),
-      h3: Theme.of(context).textTheme.titleMedium?.copyWith(color: Theme.of(context).textTheme.titleMedium?.color),
-      h4: Theme.of(context).textTheme.titleMedium?.copyWith(color: Theme.of(context).textTheme.titleMedium?.color),
-      h5: Theme.of(context).textTheme.titleMedium?.copyWith(color: Theme.of(context).textTheme.titleMedium?.color),
-      h6: Theme.of(context).textTheme.titleMedium?.copyWith(color: Theme.of(context).textTheme.titleMedium?.color),
-      blockquote:
-      Theme.of(context).textTheme.titleMedium?.copyWith(color: Theme.of(context).textTheme.titleMedium?.color),
-      code: Theme.of(context).textTheme.titleMedium?.copyWith(color: Theme.of(context).textTheme.titleMedium?.color),
-      em: Theme.of(context).textTheme.titleMedium?.copyWith(color: Theme.of(context).textTheme.titleMedium?.color),
-      strong: Theme.of(context).textTheme.titleMedium?.copyWith(color: Theme.of(context).textTheme.titleMedium?.color),
-      del: Theme.of(context).textTheme.titleMedium?.copyWith(color: Theme.of(context).textTheme.titleMedium?.color),
-      tableHead:
-      Theme.of(context).textTheme.titleMedium?.copyWith(color: Theme.of(context).textTheme.titleMedium?.color),
-      tableBody:
-      Theme.of(context).textTheme.titleMedium?.copyWith(color: Theme.of(context).textTheme.titleMedium?.color),
+      p: markdownTextStyle,
+      h1: markdownTextStyle,
+      h2: markdownTextStyle,
+      h3: markdownTextStyle,
+      h4: markdownTextStyle,
+      h5: markdownTextStyle,
+      h6: markdownTextStyle,
+      blockquote: markdownTextStyle,
+      code: markdownTextStyle,
+      em: markdownTextStyle,
+      strong: markdownTextStyle,
+      del: markdownTextStyle,
+      tableHead: markdownTextStyle,
+      tableBody: markdownTextStyle,
       tableHeadAlign: TextAlign.center,
       tableBorder: TableBorder.all(
         color: Theme.of(context).textTheme.titleMedium?.color ?? Colors.black,
@@ -135,7 +137,7 @@ class CodeElementBuilder extends MarkdownElementBuilder {
               style: Theme.of(context)
                   .textTheme
                   .titleMedium
-                  ?.copyWith(color: Theme.of(context).textTheme.titleMedium?.color),
+                  ?.copyWith(fontFamily: xDotFontFamily),
             ),
           ],
         ),
@@ -159,8 +161,11 @@ class CodeElementBuilder extends MarkdownElementBuilder {
             HighlightView(
               element.textContent,
               language: language,
-              theme: Theme.of(context).brightness == Brightness.light ? atomOneLightTheme : atomOneDarkTheme,
+              theme: Theme.of(context).brightness == Brightness.light
+                  ? atomOneLightTheme
+                  : atomOneDarkTheme,
               padding: const EdgeInsets.all(8),
+              textStyle: const TextStyle(fontFamily: xDotFontFamily),
               // Specify text style
             ),
             Align(
