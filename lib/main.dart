@@ -1,5 +1,6 @@
 import 'package:chat_bot/module/claude/app_theme.dart';
 import 'package:chat_bot/module/splash_page.dart';
+import 'package:chat_bot/module/startup_recovery.dart';
 import 'package:chat_bot/utils/hive_box.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 
@@ -9,10 +10,16 @@ import 'base/theme.dart';
 import 'initial.dart';
 
 ProviderContainer? globalRef;
-void main() async {
-  await Initial.init();
-
-  S.load(getLocaleByCode(HiveBox().globalLanguageCode));
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  try {
+    await Initial.init();
+    await S.load(getLocaleByCode(HiveBox().globalLanguageCode));
+  } catch (_) {
+    // Do not reset accounts/history or expose storage exceptions on screen.
+    runApp(StartupRecoveryApp(onRetry: main));
+    return;
+  }
   globalRef = ProviderContainer(
     observers: [
       ProviderLogger(),

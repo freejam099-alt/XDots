@@ -93,4 +93,6 @@ String _avatarLabel(AgentActivity activity) => switch (activity) {
       AgentActivity.tool => 'Assistant using a tool',
       AgentActivity.approval => 'Assistant awaiting approval',
       AgentActivity.error => 'Assistant encountered an error',
+      AgentActivity.frustrated => 'Assistant frustrated by a temporary failure',
+      AgentActivity.crying => 'Assistant crying after a failed request',
     };

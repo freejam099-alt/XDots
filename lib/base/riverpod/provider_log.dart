@@ -1,38 +1,34 @@
-
-
-
 import '../../base.dart';
 
+/// Diagnostics never include provider values, errors, or conversation content.
 class ProviderLogger extends ProviderObserver {
+  void _event(ProviderBase provider, String event) {
+    if (kDebugMode) {
+      debugPrint('[${provider.name ?? provider.runtimeType}] $event');
+    }
+  }
+
   @override
-  void didUpdateProvider(
-    ProviderBase provider,
-    Object? previousValue,
-    Object? newValue,
-    ProviderContainer container,
-  ) {
-    '[${provider.name ?? provider.runtimeType.toString()}] expose: $newValue'
-        .i();
+  void didUpdateProvider(ProviderBase provider, Object? previousValue,
+      Object? newValue, ProviderContainer container) {
+    _event(provider, 'updated');
   }
 
   @override
   void didAddProvider(ProviderBase<Object?> provider, Object? value,
       ProviderContainer container) {
-    super.didAddProvider(provider, value, container);
-    '[${provider.name ?? provider.runtimeType.toString()}] created: $value'.i();
+    _event(provider, 'created');
   }
 
   @override
   void didDisposeProvider(
       ProviderBase<Object?> provider, ProviderContainer container) {
-    super.didDisposeProvider(provider, container);
-    '[${provider.name ?? provider.runtimeType.toString()}] disposed'.i();
+    _event(provider, 'disposed');
   }
 
   @override
   void providerDidFail(ProviderBase<Object?> provider, Object error,
       StackTrace stackTrace, ProviderContainer container) {
-    super.providerDidFail(provider, error, stackTrace, container);
-    '[${provider.name ?? provider.runtimeType.toString()}] error: $error'.e();
+    _event(provider, 'failed');
   }
 }

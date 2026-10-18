@@ -9,8 +9,6 @@ import 'package:chat_bot/hive_bean/openai_bean.dart';
 import 'package:chat_bot/hive_bean/supported_models.dart';
 import 'package:dart_openai/dart_openai.dart';
 import 'package:dio/dio.dart';
-import 'package:pretty_dio_logger/pretty_dio_logger.dart';
-
 import '../api_bean/claude_content_bean.dart';
 
 class ClaudeImpl extends APIImpl {
@@ -25,16 +23,24 @@ class ClaudeImpl extends APIImpl {
   final splitter = const LineSplitter();
 
   @override
-  Future<String> generateChatTitle(String temperature, AllModelBean bean, String modelType,
-      List<ChatItem> originalChatItem, List<RequestParams> chatItems) async {
-    var result =
-        await generateContent(double.tryParse(temperature) ?? 1.0, bean, modelType, originalChatItem, chatItems);
+  Future<String> generateChatTitle(
+      String temperature,
+      AllModelBean bean,
+      String modelType,
+      List<ChatItem> originalChatItem,
+      List<RequestParams> chatItems) async {
+    var result = await generateContent(double.tryParse(temperature) ?? 1.0,
+        bean, modelType, originalChatItem, chatItems);
     return result.content ?? "";
   }
 
   @override
-  Future<GenerateContentBean> generateContent(double temperature, AllModelBean bean, String modelType,
-      List<ChatItem> originalChatItem, List<RequestParams> chatItems) async {
+  Future<GenerateContentBean> generateContent(
+      double temperature,
+      AllModelBean bean,
+      String modelType,
+      List<ChatItem> originalChatItem,
+      List<RequestParams> chatItems) async {
     initAPI(bean);
 
     var params = chatItems
@@ -80,8 +86,8 @@ class ClaudeImpl extends APIImpl {
   }
 
   @override
-  Future<List<OpenAIImageData>> generateOpenAIImage(
-      AllModelBean bean, String prompt, OpenAIImageStyle style, OpenAIImageSize size) {
+  Future<List<OpenAIImageData>> generateOpenAIImage(AllModelBean bean,
+      String prompt, OpenAIImageStyle style, OpenAIImageSize size) {
     throw UnimplementedError();
   }
 
@@ -89,7 +95,8 @@ class ClaudeImpl extends APIImpl {
   Future<List<SupportedModels>> getSupportModules(AllModelBean bean) async {
     try {
       var result = await generateContent(1.0, bean, "Claude 3 Haiku", [], [
-        RequestParams(role: ChatType.user.index, content: ["hello, Claude"], images: [])
+        RequestParams(
+            role: ChatType.user.index, content: ["hello, Claude"], images: [])
       ]);
       eDismiss();
       if (result.content != null && result.content!.isNotEmpty) {
@@ -126,12 +133,16 @@ class ClaudeImpl extends APIImpl {
         "anthropic-version": "2023-06-01",
       },
     ));
-    _dio!.interceptors.add(PrettyDioLogger());
   }
 
   @override
-  Future<Stream<GenerateContentBean>> streamGenerateContent(String temperature, AllModelBean bean, String modelType,
-      List<ChatItem> originalChatItem, List<RequestParams> chatItems, bool withoutHistoryMessage) async {
+  Future<Stream<GenerateContentBean>> streamGenerateContent(
+      String temperature,
+      AllModelBean bean,
+      String modelType,
+      List<ChatItem> originalChatItem,
+      List<RequestParams> chatItems,
+      bool withoutHistoryMessage) async {
     initAPI(bean);
 
     var params = chatItems
@@ -155,7 +166,7 @@ class ClaudeImpl extends APIImpl {
               ],
             })
         .toList();
-    var response = await _dio!.post(
+    await _dio!.post(
       "/v1/messages",
       data: params,
       options: Options(responseType: ResponseType.stream),
@@ -177,7 +188,8 @@ class ClaudeImpl extends APIImpl {
   Future<bool> validateApiKey(AllModelBean bean) async {
     try {
       var result = await generateContent(1.0, bean, "Claude 3 Haiku", [], [
-        RequestParams(role: ChatType.user.index, content: ["hello, Claude"], images: [])
+        RequestParams(
+            role: ChatType.user.index, content: ["hello, Claude"], images: [])
       ]);
       eDismiss();
       if (result.content != null && result.content!.isNotEmpty) {

@@ -27,7 +27,7 @@ Locale getLocaleByDefaultCode() {
   String code = HiveBox().globalLanguageCode;
   String resultCode = code;
   if (code == "auto") {
-    var defLan = WidgetsBinding.instance.window.locale.languageCode;
+    var defLan = WidgetsBinding.instance.platformDispatcher.locale.languageCode;
     if (getSupportedLanguage().contains(defLan)) {
       resultCode = defLan;
     } else {
@@ -39,13 +39,13 @@ Locale getLocaleByDefaultCode() {
 
   return S.delegate.supportedLocales.firstWhere(
       (element) => element.languageCode == resultCode,
-      orElse: () => WidgetsBinding.instance.window.locale);
+      orElse: () => WidgetsBinding.instance.platformDispatcher.locale);
 }
 
 Locale getLocaleByCode(String code) {
   String resultCode = code;
   if (code == "auto") {
-    var defLan = WidgetsBinding.instance.window.locale.languageCode;
+    var defLan = WidgetsBinding.instance.platformDispatcher.locale.languageCode;
     if (getSupportedLanguage().contains(defLan)) {
       resultCode = defLan;
     } else {
@@ -57,7 +57,7 @@ Locale getLocaleByCode(String code) {
 
   return S.delegate.supportedLocales.firstWhere(
       (element) => element.languageCode == resultCode,
-      orElse: () => WidgetsBinding.instance.window.locale);
+      orElse: () => WidgetsBinding.instance.platformDispatcher.locale);
 }
 
 Map<String, String> getLocaleLanguages() {

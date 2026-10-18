@@ -230,8 +230,10 @@ class MuseHeader extends StatelessWidget {
     final String? visibleStatus = statusLabel ?? status;
     return LayoutBuilder(
       builder: (context, constraints) {
+        // The previous responsive avatar already used 1.1; grow that size by
+        // the requested additional ten percent, not just the unused default.
         final double avatarSize =
-            (constraints.maxWidth * 0.14).clamp(40.0, 48.0) * 1.1;
+            (constraints.maxWidth * 0.14).clamp(40.0, 48.0) * 1.21;
         // Reserve the same space on both sides for the two right-hand actions.
         // The center column grows naturally with accessibility text scaling.
         return Stack(

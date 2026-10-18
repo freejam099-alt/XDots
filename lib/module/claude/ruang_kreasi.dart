@@ -6,6 +6,7 @@ import 'package:pull_down_button/pull_down_button.dart';
 
 import 'app_theme.dart';
 import 'chat_data.dart';
+import 'dots_gateway.dart';
 import 'server_panel.dart';
 import 'ai_service.dart';
 import 'model_store.dart';
@@ -21,10 +22,20 @@ String _t(BuildContext context, String id, String en, String zh) {
   return id;
 }
 
+String _modelLabel(String id) =>
+    DotsGateway.isDotsModel(id) ? DotsGateway.displayName : id;
+
+String _canonicalModel(String id) =>
+    DotsGateway.isDotsModel(id) ? DotsGateway.modelId : id;
+
+bool _sameModel(String a, String b) => _canonicalModel(a) == _canonicalModel(b);
+
 class _ModelOption {
   final String id;
   final String subtitle;
-  const _ModelOption(this.id, this.subtitle);
+  final String? displayLabel;
+  const _ModelOption(this.id, this.subtitle, {this.displayLabel});
+  String get label => displayLabel ?? _modelLabel(id);
 }
 
 /// Model hasil fetch dipilah otomatis: chat / gambar / video.
@@ -43,10 +54,17 @@ List<_ModelOption> _fetchedOptions(int kind) {
 }
 
 List<_ModelOption> _chatOptions() {
-  return [
+  final List<_ModelOption> candidates = [
+    const _ModelOption(DotsGateway.legacyAlias, 'XDots built-in',
+        displayLabel: DotsGateway.displayName),
     ..._fetchedOptions(0),
     for (final String id in ModelStore.manualModels())
       if (MuseAi.kindOf(id) == 0) _ModelOption(id, 'Manual'),
+  ];
+  final Set<String> seen = <String>{};
+  return [
+    for (final _ModelOption option in candidates)
+      if (seen.add(_canonicalModel(option.id))) option
   ];
 }
 
@@ -98,7 +116,7 @@ class _RuangKreasiPageState extends State<RuangKreasiPage> {
           _GroupedModelSection(
             title: _t(
                 context, 'Model Chat Default', 'Default Chat Model', '默认聊天模型'),
-            current: ModelStore.defaultChat(),
+            current: MuseAi.resolve()?.model ?? ModelStore.defaultChat(),
             options: _chatOptions(),
             emptyHint: _t(
                 context,
@@ -128,6 +146,7 @@ class _RuangKreasiPageState extends State<RuangKreasiPage> {
                 '暂无视频模型，请获取或手动添加。'),
             onPick: (id) => setState(() => ModelStore.setDefaultVideo(id)),
           ),
+          const DotsGatewayInfoCard(),
           const SizedBox(height: 8),
           GestureDetector(
             behavior: HitTestBehavior.opaque,
@@ -174,6 +193,63 @@ class _RuangKreasiPageState extends State<RuangKreasiPage> {
   }
 }
 
+/// Honest status for the built-in model; build-time configuration is not a
+/// health check, and no credential value is ever exposed here.
+class DotsGatewayInfoCard extends StatelessWidget {
+  const DotsGatewayInfoCard({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final AppColors c = AppColors.of(context);
+    final bool configured = DotsGateway.isConfigured;
+    final Color statusColor = configured ? c.accent : c.pdfRed;
+    final String status = configured
+        ? _t(
+            context,
+            'Akses model bawaan dikonfigurasi; ketersediaan layanan belum diuji.',
+            'Built-in model access is configured; service availability has not been checked.',
+            '内置模型访问已配置；尚未检查服务可用性。')
+        : _t(
+            context,
+            'Belum aktif pada build ini — akses model bawaan belum dikonfigurasi.',
+            'Inactive in this build — built-in model access is not configured.',
+            '此构建未启用 — 尚未配置内置模型访问。');
+    return Container(
+      margin: const EdgeInsets.only(bottom: 14),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: c.surfaceSoft,
+        borderRadius: BorderRadius.circular(18),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(DotsGateway.displayName,
+              style: TextStyle(
+                  color: c.textPrimary,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600)),
+          const SizedBox(height: 5),
+          Text(status,
+              style: TextStyle(
+                  color: statusColor,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500)),
+          const SizedBox(height: 6),
+          Text(
+            _t(
+                context,
+                'Pengguna tidak perlu memasukkan API key. XDots tidak menetapkan batas penggunaan per pengguna; kebijakan upstream dapat berlaku.',
+                'Users do not enter an API key. XDots imposes no per-user usage cap; upstream policies may apply.',
+                '用户无需输入 API 密钥。XDots 不设每用户用量上限；上游政策可能适用。'),
+            style: TextStyle(color: c.textMuted, fontSize: 12, height: 1.35),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 /// Model Chat Default: dikelompokkan per provider (bisa dilipat),
 /// tiap model punya toggle. Hanya satu model default yang aktif.
 class _GroupedModelSection extends StatefulWidget {
@@ -212,7 +288,7 @@ class _GroupedModelSectionState extends State<_GroupedModelSection> {
     super.initState();
     // Buka otomatis grup yang berisi model terpilih.
     _groups().forEach((String name, List<_ModelOption> list) {
-      if (list.any((o) => o.id == widget.current)) _open.add(name);
+      if (list.any((o) => _sameModel(o.id, widget.current))) _open.add(name);
     });
   }
 
@@ -280,7 +356,9 @@ class _ProviderGroup extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final AppColors c = AppColors.of(context);
-    final bool hasCurrent = models.any((o) => o.id == current);
+    final bool reducedMotion =
+        MediaQuery.maybeOf(context)?.disableAnimations ?? false;
+    final bool hasCurrent = models.any((o) => _sameModel(o.id, current));
     final String initial =
         name.isEmpty ? '?' : name.substring(0, 1).toUpperCase();
     return Container(
@@ -341,7 +419,7 @@ class _ProviderGroup extends StatelessWidget {
                     ),
                   AnimatedRotation(
                     turns: open ? 0.5 : 0.0,
-                    duration: AppDims.animMed,
+                    duration: reducedMotion ? Duration.zero : AppDims.animMed,
                     curve: Curves.easeOutCubic,
                     child:
                         Icon(Icons.expand_more, size: 24, color: c.textMuted),
@@ -351,7 +429,7 @@ class _ProviderGroup extends StatelessWidget {
             ),
           ),
           AnimatedSize(
-            duration: AppDims.animMed,
+            duration: reducedMotion ? Duration.zero : AppDims.animMed,
             curve: Curves.easeOutCubic,
             alignment: Alignment.topCenter,
             child: open
@@ -366,7 +444,7 @@ class _ProviderGroup extends StatelessWidget {
                         for (int i = 0; i < models.length; i++) ...[
                           _ModelToggleRow(
                             option: models[i],
-                            selected: current == models[i].id,
+                            selected: _sameModel(current, models[i].id),
                             onChanged: (bool v) =>
                                 onPick(v ? models[i].id : ''),
                           ),
@@ -438,8 +516,8 @@ class _PopupModelPicker extends StatelessWidget {
             ));
             for (final _ModelOption o in list) {
               items.add(PullDownMenuItem.selectable(
-                title: o.id,
-                selected: o.id == current,
+                title: o.label,
+                selected: _sameModel(o.id, current),
                 onTap: () => onPick(o.id),
               ));
             }
@@ -462,7 +540,7 @@ class _PopupModelPicker extends StatelessWidget {
                 children: [
                   Expanded(
                     child: Text(
-                      current.isEmpty ? 'Pilih model' : current,
+                      current.isEmpty ? 'Pilih model' : _modelLabel(current),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
@@ -532,7 +610,7 @@ class _ModelToggleRow extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    option.id,
+                    option.label,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(

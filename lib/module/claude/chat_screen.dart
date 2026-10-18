@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:chat_bot/utils/hive_box.dart';
 
 import 'ai_service.dart';
+import 'agent_failure.dart';
 import 'dot_browser.dart';
 import 'history_sheet.dart';
 import 'model_store.dart';
@@ -64,6 +65,9 @@ class ChatUiController {
   void appendAiToken(String token) => _state?._appendToken(token);
 
   void finishAiMessage() => _state?._finishAiMessage();
+
+  /// Report a real request failure from a connected backend.
+  void reportFailure(Object error) => _state?._failRequest(error);
 
   /// Backend wajib menunggu hasil ini sebelum menjalankan aksi sensitif.
   /// Tanpa layar aktif, permintaan ditolak (fail closed).
@@ -124,6 +128,8 @@ class _ClaudeChatScreenState extends State<ClaudeChatScreen> {
       GlobalKey<SliverAnimatedListState>();
   final ScrollController _scrollController = ScrollController();
   final List<ChatMsg> _messages = List.of(kInitialMessages);
+  String? _activeSessionId;
+  bool _loadingHistory = false;
 
   int? _editingIndex;
   final Map<String, Completer<bool>> _approvals = {};
@@ -166,6 +172,7 @@ class _ClaudeChatScreenState extends State<ClaudeChatScreen> {
                 allow ? ApprovalStatus.approved : ApprovalStatus.denied);
       }
     });
+    _persistActiveSession();
     request.complete(allow);
   }
 
@@ -190,6 +197,7 @@ class _ClaudeChatScreenState extends State<ClaudeChatScreen> {
   String? _autoTitle;
   bool _titleRequested = false;
   bool _aiBusy = false;
+  AgentActivity? _lastFailureActivity;
   bool _rerun = false;
   int _runId = 0;
   String? _runModel;
@@ -240,7 +248,9 @@ class _ClaudeChatScreenState extends State<ClaudeChatScreen> {
 
   void _insertMessage(ChatMsg message) {
     if (!mounted) return;
+    if (message.isUser) _lastFailureActivity = null;
     setState(() => _messages.add(message));
+    _persistActiveSession();
     _listKey.currentState?.insertItem(
       _messages.length - 1,
       duration: _kItemDuration,
@@ -252,6 +262,7 @@ class _ClaudeChatScreenState extends State<ClaudeChatScreen> {
   /// (bukan seluruh list) sehingga scroll tetap mulus.
   void _appendToken(String token) {
     if (!mounted) return;
+    _lastFailureActivity = null;
     _streamBuf += token;
     if (!_streaming) setState(() => _streaming = true);
     _flushTimer ??= Timer(const Duration(milliseconds: 45), () {
@@ -309,6 +320,7 @@ class _ClaudeChatScreenState extends State<ClaudeChatScreen> {
   }
 
   void _toolCall(String name, String? detail) {
+    _lastFailureActivity = null;
     _insertMessage(
       ChatMsg(
         isUser: false,
@@ -332,6 +344,7 @@ class _ClaudeChatScreenState extends State<ClaudeChatScreen> {
     setState(() {
       _messages[i] = _messages[i].copyWith(toolStatus: ToolStatus.done);
     });
+    _persistActiveSession();
     if (_deferredFinish) _finishAiMessage();
   }
 
@@ -343,6 +356,7 @@ class _ClaudeChatScreenState extends State<ClaudeChatScreen> {
   }
 
   void _genStart(bool video) {
+    _lastFailureActivity = null;
     _insertMessage(ChatMsg(
       isUser: false,
       type: MessageType.gen,
@@ -366,6 +380,7 @@ class _ClaudeChatScreenState extends State<ClaudeChatScreen> {
     setState(() {
       _messages[i] = f(_messages[i]);
     });
+    _persistActiveSession();
   }
 
   void _genPrompt(String prompt) {
@@ -393,6 +408,7 @@ class _ClaudeChatScreenState extends State<ClaudeChatScreen> {
         toolStatus: ToolStatus.done,
       );
     });
+    _persistActiveSession();
     if (_deferredFinish) _finishAiMessage();
   }
 
@@ -419,6 +435,7 @@ class _ClaudeChatScreenState extends State<ClaudeChatScreen> {
       _deferredFinish = false;
       _editingIndex = null;
       _aiBusy = false;
+      _lastFailureActivity = null;
       _rerun = false;
       _runId++;
       _epoch++;
@@ -430,36 +447,56 @@ class _ClaudeChatScreenState extends State<ClaudeChatScreen> {
       _runModel = null;
       _activityGroupId = null;
     });
+    _activeSessionId = null;
   }
 
-  /// Obrolan baru: simpan sesi aktif ke History lalu kosongkan layar.
-  void _newChat() {
-    if (_messages.isNotEmpty) {
-      final ChatMsg firstUser = _messages.firstWhere(
-        (m) => m.isUser && m.text.trim().isNotEmpty,
-        orElse: () => _messages.first,
-      );
-      String title = firstUser.text.trim().replaceAll('\n', ' ');
-      if (title.length > 24) title = '${title.substring(0, 24)}...';
-      if (_autoTitleEnabled() && (_autoTitle ?? '').isNotEmpty) {
-        title = _autoTitle!;
-      }
-      ModelStore.saveSession(title, _messages);
+  String _sessionTitle() {
+    if (_messages.isEmpty) return 'Obrolan';
+    final ChatMsg firstUser = _messages.firstWhere(
+      (m) => m.isUser && m.text.trim().isNotEmpty,
+      orElse: () => _messages.first,
+    );
+    String title = firstUser.text.trim().replaceAll('\n', ' ');
+    if (title.length > 24) title = '${title.substring(0, 24)}...';
+    if (_autoTitleEnabled() && (_autoTitle ?? '').isNotEmpty) {
+      title = _autoTitle!;
     }
+    return title.isEmpty ? 'Obrolan' : title;
+  }
+
+  void _persistActiveSession() {
+    if (!mounted || _loadingHistory || _messages.isEmpty) return;
+    _activeSessionId = ModelStore.saveSession(
+      _sessionTitle(),
+      _messages,
+      id: _activeSessionId,
+    );
+  }
+
+  /// Obrolan baru: pastikan sesi aktif tersimpan lalu kosongkan layar.
+  void _newChat() {
+    _persistActiveSession();
     _clearAll();
   }
 
   /// Buka History lalu muat sesi yang dipilih.
   Future<void> _openHistory() async {
-    final List<ChatMsg>? msgs = await openHistory(context);
-    if (msgs == null || !mounted) return;
+    final HistorySelection? selection = await openHistory(context);
+    if (selection == null || !mounted) return;
     _clearAll();
+    _activeSessionId = selection.id;
+    _loadingHistory = true;
     final int epoch = _epoch;
     // Masukkan satu per satu agar animasi entrance ikut main.
-    for (final ChatMsg m in msgs) {
-      if (!mounted || epoch != _epoch) break;
-      _insertMessage(m);
-      await Future.delayed(const Duration(milliseconds: 30));
+    try {
+      for (final ChatMsg m in selection.messages) {
+        if (!mounted || epoch != _epoch) break;
+        _insertMessage(m);
+        await Future.delayed(const Duration(milliseconds: 30));
+      }
+    } finally {
+      _loadingHistory = false;
+      _persistActiveSession();
     }
   }
 
@@ -542,6 +579,12 @@ class _ClaudeChatScreenState extends State<ClaudeChatScreen> {
         _editingIndex = _editingIndex! - 1;
       }
     });
+    if (_messages.isEmpty) {
+      if (_activeSessionId != null) ModelStore.deleteSession(_activeSessionId!);
+      _activeSessionId = null;
+    } else {
+      _persistActiveSession();
+    }
   }
 
   void _resend(int index) {
@@ -580,6 +623,7 @@ class _ClaudeChatScreenState extends State<ClaudeChatScreen> {
       _messages[index] = old.copyWith(text: text);
       _editingIndex = null;
     });
+    _persistActiveSession();
   }
 
   void _openActions(int index, [Offset? anchor]) {
@@ -611,6 +655,7 @@ class _ClaudeChatScreenState extends State<ClaudeChatScreen> {
           toolStatus: failed ? ToolStatus.failed : ToolStatus.done,
           text: result);
     });
+    _persistActiveSession();
     if (_deferredFinish) _finishAiMessage();
   }
 
@@ -652,7 +697,10 @@ class _ClaudeChatScreenState extends State<ClaudeChatScreen> {
     final int epoch = _epoch;
     MuseAi.generateTitle(List<ChatMsg>.of(_messages)).then((String? t) {
       if (!mounted || epoch != _epoch) return;
-      if (t != null && t.isNotEmpty) _autoTitle = t;
+      if (t != null && t.isNotEmpty) {
+        _autoTitle = t;
+        _persistActiveSession();
+      }
     });
   }
 
@@ -666,6 +714,20 @@ class _ClaudeChatScreenState extends State<ClaudeChatScreen> {
     }
   }
 
+  void _failRequest(Object error) {
+    if (!mounted) return;
+    _finishAiMessage();
+    setState(() {
+      _lastFailureActivity = activityForFailure(error);
+    });
+    _insertMessage(ChatMsg(
+      isUser: false,
+      type: MessageType.text,
+      text: '⚠️ ${MuseAi.friendlyError(error)}',
+    ));
+    _endRun();
+  }
+
   /// Kirim riwayat ke AI dan alirkan balasannya (streaming).
   Future<void> _runAi({int depth = 0}) async {
     if (_aiBusy && depth == 0) {
@@ -676,11 +738,12 @@ class _ClaudeChatScreenState extends State<ClaudeChatScreen> {
     final int id = depth == 0 ? ++_runId : _runId;
     if (depth == 0) {
       _activityGroupId = '${DateTime.now().microsecondsSinceEpoch}:$id';
+      _lastFailureActivity = null;
     }
     setState(() => _aiBusy = true);
     String full = '';
     try {
-      _runModel = MuseAi.resolve()?.model;
+      _runModel = MuseAi.resolve()?.displayName;
       final Stream<String> stream = MuseAi.stream(List<ChatMsg>.of(_messages));
       await for (final String token in stream) {
         if (!mounted || id != _runId) break;
@@ -690,25 +753,14 @@ class _ClaudeChatScreenState extends State<ClaudeChatScreen> {
       }
     } catch (e) {
       if (!mounted || id != _runId) return;
-      _finishAiMessage();
-      _insertMessage(ChatMsg(
-        isUser: false,
-        type: MessageType.text,
-        text: '⚠️ ${MuseAi.friendlyError(e)}',
-      ));
-      _endRun();
+      _failRequest(e);
       return;
     }
     if (!mounted || id != _runId) return;
     _finishAiMessage();
     if (full.trim().isEmpty) {
-      _insertMessage(const ChatMsg(
-        isUser: false,
-        type: MessageType.text,
-        text: '⚠️ Model tidak mengirim balasan. Coba model lain di '
-            'Ruang Kreasi.',
-      ));
-      _endRun();
+      _failRequest(const MuseAiException(
+          'Model tidak mengirim balasan. Coba model lain di Ruang Kreasi.'));
       return;
     }
     final MuseToolCall? call = MuseAi.parseTool(full);
@@ -798,6 +850,7 @@ class _ClaudeChatScreenState extends State<ClaudeChatScreen> {
       _genSetResult(result);
     } catch (e) {
       if (!_activeRun(id)) return;
+      _lastFailureActivity = activityForFailure(e);
       final int gi = _lastGenIndex();
       if (gi >= 0) {
         setState(() => _messages[gi] = _messages[gi].copyWith(
@@ -828,6 +881,8 @@ class _ClaudeChatScreenState extends State<ClaudeChatScreen> {
             : <String>[];
       }
     } catch (e) {
+      if (!_activeRun(id)) return;
+      _lastFailureActivity = activityForFailure(e);
       failed = true;
       result = 'Gagal memanggil $name: ${MuseAi.friendlyError(e)}';
     }
@@ -842,6 +897,8 @@ class _ClaudeChatScreenState extends State<ClaudeChatScreen> {
     try {
       result = await MuseAi.exaCall(name, arg);
     } catch (e) {
+      if (!_activeRun(id)) return;
+      _lastFailureActivity = activityForFailure(e);
       failed = true;
       result = 'Gagal memanggil $name: ${MuseAi.friendlyError(e)}';
     }
@@ -869,9 +926,12 @@ class _ClaudeChatScreenState extends State<ClaudeChatScreen> {
       }
     }
     if (_aiBusy || _streaming) return AgentActivity.thinking;
+    if (_lastFailureActivity != null) return _lastFailureActivity!;
     if (_messages.isNotEmpty &&
-        (_messages.last.toolStatus == ToolStatus.failed ||
-            _messages.last.text.startsWith('⚠️'))) return AgentActivity.error;
+        !_messages.last.isUser &&
+        _messages.last.toolStatus == ToolStatus.failed) {
+      return AgentActivity.crying;
+    }
     return AgentActivity.idle;
   }
 
@@ -881,6 +941,8 @@ class _ClaudeChatScreenState extends State<ClaudeChatScreen> {
         AgentActivity.tool => 'Menjalankan tindakan…',
         AgentActivity.thinking => 'Sedang merespons…',
         AgentActivity.error => 'Perlu perhatian',
+        AgentActivity.frustrated => 'Gangguan sementara — coba lagi',
+        AgentActivity.crying => 'Permintaan gagal',
         AgentActivity.idle => null,
       };
 

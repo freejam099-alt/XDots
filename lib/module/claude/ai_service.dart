@@ -15,6 +15,7 @@ import 'package:path_provider/path_provider.dart';
 
 import 'chat_data.dart';
 import 'dot_browser.dart';
+import 'dots_gateway.dart';
 import 'mcp_client.dart';
 import 'model_store.dart';
 
@@ -22,7 +23,12 @@ import 'model_store.dart';
 class MuseTarget {
   final AllModelBean bean;
   final String model;
-  const MuseTarget(this.bean, this.model);
+  final bool isBuiltInDots;
+  const MuseTarget(this.bean, this.model, {this.isBuiltInDots = false});
+
+  /// Stable [model] stays suitable for requests; UI may use this friendly name.
+  String get displayName =>
+      DotsGateway.isDotsModel(model) ? DotsGateway.displayName : model;
 }
 
 /// Panggilan tool yang diminta AI lewat penanda `[[tool:nama|argumen]]`.
@@ -41,7 +47,8 @@ class LinkCollapse {
 
 class MuseAiException implements Exception {
   final String message;
-  const MuseAiException(this.message);
+  final int? statusCode;
+  const MuseAiException(this.message, {this.statusCode});
   @override
   String toString() => message;
 }
@@ -59,9 +66,33 @@ class MuseAi {
   /// Pilih server + model dari default Ruang Kreasi.
   /// Mengembalikan null bila belum ada server sama sekali.
   static MuseTarget? resolve() {
-    final List<AllModelBean> beans = HiveBox().openAIConfig.values.toList();
-    if (beans.isEmpty) return null;
     final String wanted = ModelStore.defaultChat();
+    final List<AllModelBean> beans = HiveBox().openAIConfig.values.toList();
+    return resolveForProviders(beans, wanted);
+  }
+
+  /// Resolves a selection without reading Hive, so provider selection can be
+  /// tested independently of app storage.
+  static MuseTarget? resolveForProviders(
+      List<AllModelBean> beans, String wanted) {
+    if (wanted == DotsGateway.legacyAlias) {
+      return _builtInDotsTarget();
+    }
+    if (wanted.isNotEmpty) {
+      for (final AllModelBean b in beans) {
+        final List<SupportedModels> list =
+            b.supportedModels ?? <SupportedModels>[];
+        if (list.any((SupportedModels m) => m.id == wanted)) {
+          return MuseTarget(b, wanted);
+        }
+      }
+    }
+    if (DotsGateway.shouldResolve(
+        selectedModel: wanted, hasExistingAccounts: beans.isNotEmpty)) {
+      // Built-in target is ephemeral: never save a synthetic account or key.
+      return _builtInDotsTarget();
+    }
+    if (beans.isEmpty) return null;
     if (wanted.isNotEmpty) {
       for (final AllModelBean b in beans) {
         final List<SupportedModels> list =
@@ -81,6 +112,17 @@ class MuseAi {
     }
     return null;
   }
+
+  static MuseTarget _builtInDotsTarget() => MuseTarget(
+        AllModelBean(
+          apiKey: DotsGateway.apiKey,
+          model: APIType.openAI.code,
+          apiServer: DotsGateway.upstreamBase,
+          alias: DotsGateway.displayName,
+        ),
+        DotsGateway.modelId,
+        isBuiltInDots: true,
+      );
 
   // -- System prompt -----------------------------------------------------------
 
@@ -466,21 +508,29 @@ class MuseAi {
   static Stream<String> _streamOpenAI(
       MuseTarget t, List<ChatItem> items) async* {
     final List<Map<String, dynamic>> messages = openAiMessages(items);
-    final String base = normalizeBase(t.bean.apiServer ?? '');
+    final bool dots = t.isBuiltInDots;
+    if (dots && !DotsGateway.isConfigured) {
+      throw MuseAiException(DotsGateway.configurationGuidance);
+    }
+    final String base = normalizeBase(
+        dots ? DotsGateway.upstreamBase : (t.bean.apiServer ?? ''));
+    final Map<String, dynamic> headers = <String, dynamic>{
+      'Content-Type': 'application/json',
+      'Accept': 'text/event-stream',
+    };
+    if ((t.bean.apiKey ?? '').isNotEmpty) {
+      headers['Authorization'] = 'Bearer ${t.bean.apiKey}';
+    }
     final Dio dio = Dio(BaseOptions(
       connectTimeout: const Duration(seconds: 30),
       receiveTimeout: const Duration(minutes: 5),
-      headers: <String, dynamic>{
-        'Authorization': 'Bearer ${t.bean.apiKey ?? ''}',
-        'Content-Type': 'application/json',
-        'Accept': 'text/event-stream',
-      },
+      headers: headers,
     ));
     try {
       final Response<ResponseBody> res = await dio.post<ResponseBody>(
         '$base/v1/chat/completions',
         data: <String, dynamic>{
-          'model': t.model,
+          'model': dots ? DotsGateway.upstreamModel : t.model,
           'messages': messages,
           'stream': true,
           'temperature': double.tryParse(HiveBox().temperature) ?? 0.5,
@@ -500,9 +550,20 @@ class MuseAi {
           bytes.addAll(c.take(remaining));
           if (c.length > remaining) break;
         }
-        throw MuseAiException(_redact(
-            _apiError(res.statusCode, utf8.decode(bytes, allowMalformed: true)),
-            secret: t.bean.apiKey));
+        final int status = res.statusCode ?? 500;
+        if (dots && (status == 401 || status == 403)) {
+          throw MuseAiException(
+              'Kunci akses Dots 1 mini ditolak EAY (HTTP 401/403). Pemilik '
+              'XDots perlu memperbarui rahasia build; jangan masukkan key '
+              'sebagai API key provider pengguna.',
+              statusCode: status);
+        }
+        throw MuseAiException(
+            _redact(
+                _apiError(
+                    res.statusCode, utf8.decode(bytes, allowMalformed: true)),
+                secret: t.bean.apiKey),
+            statusCode: status);
       }
       final Stream<String> lines = rb.stream
           .cast<List<int>>()
@@ -807,6 +868,9 @@ class MuseAi {
   static Future<String?> generateTitle(List<ChatMsg> msgs) async {
     final MuseTarget? t = resolve();
     if (t == null) return null;
+    // The built-in gateway is chat-only; do not route title requests through
+    // the legacy account-backed API abstraction.
+    if (DotsGateway.isDotsModel(t.model)) return null;
     String? user;
     String? ai;
     for (final ChatMsg m in msgs) {

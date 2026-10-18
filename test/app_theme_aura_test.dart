@@ -13,7 +13,9 @@ void main() {
         expect(shadow.color.red, colors.accent.red);
         expect(shadow.color.green, colors.accent.green);
         expect(shadow.color.blue, colors.accent.blue);
+        expect(shadow.color.opacity, lessThanOrEqualTo(0.04));
         expect(shadow.blurRadius, colors.shadowBlur);
+        expect(shadow.blurRadius, lessThanOrEqualTo(12));
       }
     });
 

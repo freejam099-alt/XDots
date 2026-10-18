@@ -24,8 +24,9 @@ class ChatGPTImpl extends APIImpl {
     OpenAI.baseUrl = (bean.apiServer ?? "");
     OpenAI.organization = bean.organization;
     OpenAI.requestsTimeOut = const Duration(seconds: 6000);
-    OpenAI.showLogs = true;
-    OpenAI.showResponsesLogs = true;
+    // Requests and responses can contain account keys and private conversations.
+    OpenAI.showLogs = false;
+    OpenAI.showResponsesLogs = false;
   }
 
   @override
@@ -41,8 +42,16 @@ class ChatGPTImpl extends APIImpl {
         .map((e) => OpenAIChatCompletionChoiceMessageModel(
               role: getTypeByRole(e.role),
               content: [
-                ...e.content.map((e) => OpenAIChatCompletionChoiceMessageContentItemModel.text(e)).toList(),
-                ...e.images.map((e) => OpenAIChatCompletionChoiceMessageContentItemModel.imageBase64(e)).toList(),
+                ...e.content
+                    .map((e) =>
+                        OpenAIChatCompletionChoiceMessageContentItemModel.text(
+                            e))
+                    .toList(),
+                ...e.images
+                    .map((e) =>
+                        OpenAIChatCompletionChoiceMessageContentItemModel
+                            .imageBase64(e))
+                    .toList(),
               ],
             ))
         .toList();
@@ -57,7 +66,8 @@ class ChatGPTImpl extends APIImpl {
       temperature: temperature,
     ));
 
-    return GenerateContentBean(content: result.choices.first.message.content?.first.text ?? "");
+    return GenerateContentBean(
+        content: result.choices.first.message.content?.first.text ?? "");
   }
 
   OpenAIChatMessageRole getTypeByRole(int type) {
@@ -85,8 +95,16 @@ class ChatGPTImpl extends APIImpl {
           .map((e) => OpenAIChatCompletionChoiceMessageModel(
                 role: getTypeByRole(e.role),
                 content: [
-                  ...e.content.map((e) => OpenAIChatCompletionChoiceMessageContentItemModel.text(e)).toList(),
-                  ...e.images.map((e) => OpenAIChatCompletionChoiceMessageContentItemModel.imageBase64(e)).toList(),
+                  ...e.content
+                      .map((e) =>
+                          OpenAIChatCompletionChoiceMessageContentItemModel
+                              .text(e))
+                      .toList(),
+                  ...e.images
+                      .map((e) =>
+                          OpenAIChatCompletionChoiceMessageContentItemModel
+                              .imageBase64(e))
+                      .toList(),
                 ],
               ))
           .toList();
@@ -105,8 +123,10 @@ class ChatGPTImpl extends APIImpl {
         var result = "";
 
         try {
-          if (event.choices.isNotEmpty && event.choices.first.delta.content != null) {
-            List<OpenAIChatCompletionChoiceMessageContentItemModel?>? content = event.choices.first.delta.content;
+          if (event.choices.isNotEmpty &&
+              event.choices.first.delta.content != null) {
+            List<OpenAIChatCompletionChoiceMessageContentItemModel?>? content =
+                event.choices.first.delta.content;
             content?.forEach((element) {
               try {
                 if (element?.type == "text") {
@@ -114,10 +134,14 @@ class ChatGPTImpl extends APIImpl {
                 } else if (element?.type == "image_url") {
                   result += "![${element?.imageUrl}](${element?.imageUrl})";
                 }
-              } catch (e) {}
+              } catch (_) {
+                // Ignore malformed optional delta fields; never log response content.
+              }
             });
           }
-        } catch (e) {}
+        } catch (_) {
+          // Ignore malformed optional delta fields; never log response content.
+        }
         return GenerateContentBean(content: result);
       });
     } on RequestFailedException catch (e) {
@@ -126,7 +150,8 @@ class ChatGPTImpl extends APIImpl {
   }
 
   @override
-  Future<File?> text2TTS(AllModelBean bean, String content, String voice) async {
+  Future<File?> text2TTS(
+      AllModelBean bean, String content, String voice) async {
     try {
       initAPI(bean);
       File speechFile = await OpenAI.instance.audio.createSpeech(
@@ -151,7 +176,8 @@ class ChatGPTImpl extends APIImpl {
   Future<String?> tts2Text(AllModelBean bean, String ttsFile) async {
     try {
       initAPI(bean);
-      OpenAIAudioModel transcription = await OpenAI.instance.audio.createTranscription(
+      OpenAIAudioModel transcription =
+          await OpenAI.instance.audio.createTranscription(
         file: File(ttsFile),
         model: bean.getWhisperModels.first.id ?? "",
         responseFormat: OpenAIAudioResponseFormat.text,
@@ -191,8 +217,9 @@ class ChatGPTImpl extends APIImpl {
   Future<List<SupportedModels>> getSupportModules(AllModelBean bean) async {
     try {
       initAPI(bean);
-      var result =
-          (await OpenAI.instance.model.list()).map((e) => SupportedModels(ownedBy: e.ownedBy, id: e.id)).toList();
+      var result = (await OpenAI.instance.model.list())
+          .map((e) => SupportedModels(ownedBy: e.ownedBy, id: e.id))
+          .toList();
       eDismiss();
       return result;
     } on RequestFailedException catch (e) {
@@ -249,9 +276,12 @@ class ChatGPTImpl extends APIImpl {
       final list = chatItems
           .where((element) => element.content.isNotEmpty)
           .map((e) => OpenAIChatCompletionChoiceMessageModel(
-                role: e.role == ChatType.user.index ? OpenAIChatMessageRole.user : OpenAIChatMessageRole.assistant,
+                role: e.role == ChatType.user.index
+                    ? OpenAIChatMessageRole.user
+                    : OpenAIChatMessageRole.assistant,
                 content: e.content
-                    .map((e) => OpenAIChatCompletionChoiceMessageContentItemModel.text(
+                    .map((e) =>
+                        OpenAIChatCompletionChoiceMessageContentItemModel.text(
                           e,
                         ))
                     .toList(),

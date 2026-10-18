@@ -1,7 +1,6 @@
 import 'dart:convert';
 
 import 'package:chat_bot/base.dart';
-import 'package:chat_bot/utils/hive_box.dart';
 import 'package:path/path.dart';
 import 'package:sqflite/sqflite.dart';
 
@@ -93,7 +92,8 @@ class PromptItemProvider {
 
     try {
       await Directory(databasesPath).create(recursive: true);
-      db = await openDatabase(path, version: 1, onCreate: (Database db, int version) async {
+      db = await openDatabase(path, version: 1,
+          onCreate: (Database db, int version) async {
         await db.execute('''
 create table $tablePromptItem ( 
         $columnTime integer primary key, 
@@ -122,7 +122,8 @@ create table $tablePromptItem (
     if (db == null) {
       await open();
     }
-    return await db!.update(tablePromptItem, item.toJson(), where: '$columnTime = ?', whereArgs: [item.time]);
+    return await db!.update(tablePromptItem, item.toJson(),
+        where: '$columnTime = ?', whereArgs: [item.time]);
   }
 
   //list
@@ -131,7 +132,14 @@ create table $tablePromptItem (
       await open();
     }
     List<Map<String, Object?>> maps = await db!.query(tablePromptItem,
-        columns: [columnTime, columnAuthor, columnTitle, columnPrompt, columnHint, columnExtra]);
+        columns: [
+          columnTime,
+          columnAuthor,
+          columnTitle,
+          columnPrompt,
+          columnHint,
+          columnExtra
+        ]);
     var list = List.generate(maps.length, (i) {
       return PromptItem.fromJson(maps[i]);
     });
@@ -170,7 +178,8 @@ create table $tablePromptItem (
     if (db == null) {
       await open();
     }
-    return await db!.delete(tablePromptItem, where: '$columnTime = ?', whereArgs: [time]);
+    return await db!
+        .delete(tablePromptItem, where: '$columnTime = ?', whereArgs: [time]);
   }
 
   //delete all

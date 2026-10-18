@@ -3,13 +3,13 @@ import 'package:chat_bot/hive_bean/local_chat_history.dart';
 import 'package:chat_bot/hive_bean/openai_bean.dart';
 import 'package:chat_bot/hive_bean/supported_models.dart';
 import 'package:chat_bot/utils/hive_box.dart';
-import 'package:loading_animation_widget/loading_animation_widget.dart';
 
 import 'app_theme.dart';
 import 'chat_data.dart';
 import 'model_store.dart';
 import '../setting/openai/openai_list_page.dart';
 import 'widgets/provider_rows.dart';
+import 'widgets/dynamic_gradient_loader.dart';
 import 'widgets/vector_icons.dart';
 
 /// Panel Server gaya Muse (gelap/terang ikut tema):
@@ -120,9 +120,11 @@ class _ServerPanelState extends State<ServerPanel> {
               Center(
                 child: Padding(
                   padding: const EdgeInsets.all(16),
-                  child: LoadingAnimationWidget.prograssiveDots(
-                    color: c.accent,
-                    size: 40,
+                  child: MuseDynamicGradientLoader(
+                    width: 84,
+                    height: 36,
+                    borderRadius: 18,
+                    indicatorColor: c.accent,
                   ),
                 ),
               )
@@ -246,9 +248,11 @@ class _FetchButton extends StatelessWidget {
         ),
         child: Center(
           child: fetching
-              ? LoadingAnimationWidget.prograssiveDots(
-                  color: Colors.white,
-                  size: 32,
+              ? const MuseDynamicGradientLoader(
+                  width: 72,
+                  height: 24,
+                  borderRadius: 12,
+                  indicatorColor: Colors.white,
                 )
               : const Text('Fetch',
                   style: TextStyle(

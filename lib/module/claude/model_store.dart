@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
 import 'package:chat_bot/utils/sp_util.dart';
 
 import 'chat_data.dart';
@@ -22,8 +23,10 @@ class ModelStore {
   static const String kManualModels = 'muse_manual_models';
   static const String kCustomMcp = 'muse_custom_mcp';
   static const String kSessions = 'muse_sessions';
+  static const String kCorruptSessionsBackup = 'muse_sessions_corrupt_backup';
 
   static List<Map<String, dynamic>>? _sessionCache;
+  static String? _corruptSessionDataPendingBackup;
   static Future<void> _sessionWriteQueue = Future<void>.value();
   static Object? _sessionWriteError;
 
@@ -111,18 +114,76 @@ class ModelStore {
       return _copySessions(_sessionCache!);
     }
     final String raw = SpUtil.getString(kSessions);
-    if (raw.isEmpty) return [];
+    if (raw.isEmpty) {
+      _sessionCache = <Map<String, dynamic>>[];
+      return [];
+    }
     try {
       final dynamic decoded = jsonDecode(raw);
       if (decoded is List) {
-        _sessionCache = decoded
-            .whereType<Map>()
-            .map((e) => Map<String, dynamic>.from(e))
-            .toList();
+        _sessionCache = <Map<String, dynamic>>[];
+        bool hasMalformedRecords = false;
+        for (final dynamic entry in decoded) {
+          if (entry is! Map) {
+            hasMalformedRecords = true;
+            continue;
+          }
+          try {
+            final Map<String, dynamic> session =
+                Map<String, dynamic>.from(entry);
+            final dynamic id = session['id'];
+            final dynamic messages = session['messages'];
+            if (id is! String || id.trim().isEmpty || messages is! List) {
+              hasMalformedRecords = true;
+              continue;
+            }
+            for (final dynamic message in messages) {
+              if (message is! Map) {
+                hasMalformedRecords = true;
+                continue;
+              }
+              try {
+                ChatMsg.fromJson(Map<String, dynamic>.from(message));
+              } catch (_) {
+                hasMalformedRecords = true;
+              }
+            }
+            session['title'] = session['title'] is String
+                ? session['title'] as String
+                : 'Obrolan';
+            final dynamic timestamp = session['time'];
+            if (timestamp is! num ||
+                !timestamp.isFinite ||
+                timestamp.abs() > 8640000000000000) {
+              session['time'] = 0;
+              hasMalformedRecords = true;
+            } else {
+              session['time'] = timestamp.toInt();
+            }
+            _sessionCache!.add(session);
+          } catch (_) {
+            // Keep other readable sessions when one legacy record is malformed.
+            hasMalformedRecords = true;
+          }
+        }
+        if (hasMalformedRecords) _corruptSessionDataPendingBackup ??= raw;
         return _copySessions(_sessionCache!);
       }
-    } catch (_) {}
+    } catch (_) {
+      // Back up unreadable data before the next save repairs the active key.
+      _corruptSessionDataPendingBackup = raw;
+    }
+    _corruptSessionDataPendingBackup ??= raw;
+    _sessionCache = <Map<String, dynamic>>[];
     return [];
+  }
+
+  @visibleForTesting
+  static void resetSessionStateForTesting() {
+    _sessionCache = null;
+    _corruptSessionDataPendingBackup = null;
+    _sessionWriteQueue = Future<void>.value();
+    _sessionWriteError = null;
   }
 
   static List<Map<String, dynamic>> _copySessions(
@@ -138,6 +199,15 @@ class ModelStore {
     final String raw = jsonEncode(all);
     _sessionWriteQueue = _sessionWriteQueue.then((_) async {
       try {
+        final String? corrupt = _corruptSessionDataPendingBackup;
+        if (corrupt != null) {
+          final bool? backedUp =
+              await SpUtil.putString(kCorruptSessionsBackup, corrupt);
+          if (backedUp != true) {
+            throw StateError('Cadangan riwayat rusak gagal disimpan.');
+          }
+          _corruptSessionDataPendingBackup = null;
+        }
         final bool? saved = await SpUtil.putString(kSessions, raw);
         if (saved != true) throw StateError('Penyimpanan sesi gagal.');
         _sessionWriteError = null;
@@ -155,17 +225,36 @@ class ModelStore {
     if (error != null) throw StateError('Penyimpanan sesi gagal: $error');
   }
 
-  static String saveSession(String title, List<ChatMsg> messages) {
-    final String id = DateTime.now().microsecondsSinceEpoch.toString();
+  /// Save a session, updating [id] in place when restoring/editing history.
+  /// Omitting [id] creates a new stable identity.
+  static String saveSession(String title, List<ChatMsg> messages,
+      {String? id}) {
     final List<Map<String, dynamic>> all = sessions();
-    all.insert(0, {
-      'id': id,
+    final String sessionId = id ?? _newSessionId(all);
+    final Map<String, dynamic> updated = {
+      'id': sessionId,
       'title': title.isEmpty ? 'Obrolan' : title,
       'time': DateTime.now().millisecondsSinceEpoch,
       'messages': [for (final ChatMsg m in messages) m.toJson()],
-    });
+    };
+    final int existing =
+        all.indexWhere((session) => session['id'] == sessionId);
+    if (existing >= 0) {
+      all.removeAt(existing);
+    }
+    all.insert(0, updated);
     _sessionCache = all;
     _queueSessionWrite(all);
+    return sessionId;
+  }
+
+  static String _newSessionId(List<Map<String, dynamic>> all) {
+    String id = DateTime.now().microsecondsSinceEpoch.toString();
+    int suffix = 0;
+    while (all.any((session) => session['id'] == id)) {
+      suffix++;
+      id = '${DateTime.now().microsecondsSinceEpoch}-$suffix';
+    }
     return id;
   }
 
@@ -174,10 +263,18 @@ class ModelStore {
       if (s['id'] == id) {
         final dynamic list = s['messages'];
         if (list is List) {
-          return list
-              .whereType<Map>()
-              .map((e) => ChatMsg.fromJson(Map<String, dynamic>.from(e)))
-              .toList();
+          final List<ChatMsg> messages = <ChatMsg>[];
+          for (final dynamic entry in list) {
+            if (entry is! Map) continue;
+            try {
+              messages.add(
+                ChatMsg.fromJson(Map<String, dynamic>.from(entry)),
+              );
+            } catch (_) {
+              // Skip a damaged message without losing the rest of the session.
+            }
+          }
+          return messages;
         }
       }
     }

@@ -194,28 +194,22 @@ class ToolActivityPill extends StatelessWidget {
                         Container(
                           key: const ValueKey('tool-activity-pill'),
                           padding: const EdgeInsets.symmetric(
-                              horizontal: 11, vertical: 7),
+                              horizontal: 11.55, vertical: 7.35),
                           decoration: BoxDecoration(
                             borderRadius: BorderRadius.circular(999),
                             gradient: LinearGradient(colors: [
                               Color.alphaBlend(
-                                  tint.withOpacity(0.12), c.surface),
+                                  tint.withOpacity(0.04), c.surface),
                               c.surface,
                             ]),
-                            boxShadow: [
-                              BoxShadow(
-                                  color: tint.withOpacity(0.10),
-                                  blurRadius: 16,
-                                  spreadRadius: 1)
-                            ],
                           ),
                           child: Row(mainAxisSize: MainAxisSize.min, children: [
                             if (multiple) ...[
                               ActionVectorIcon(
                                   kind: ActionIconKind.parallel,
-                                  size: 17,
+                                  size: 17.85,
                                   color: tint),
-                              const SizedBox(width: 7),
+                              const SizedBox(width: 7.35),
                             ],
                             Flexible(
                                 child: AnimatedSwitcher(
@@ -245,9 +239,9 @@ class ToolActivityPill extends StatelessWidget {
                                 child: Row(
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
-                                      toolIconFor(name, size: 18),
+                                      toolIconFor(name, size: 18.9),
                                       if (model.isNotEmpty) ...[
-                                        const SizedBox(width: 6),
+                                        const SizedBox(width: 6.3),
                                         Flexible(
                                             child: Text(shortModelName(model),
                                                 maxLines: 1,
@@ -259,11 +253,11 @@ class ToolActivityPill extends StatelessWidget {
                                     ]),
                               ),
                             )),
-                            const SizedBox(width: 7),
+                            const SizedBox(width: 7.35),
                             if (status == ToolStatus.running && !reduced)
                               SizedBox(
-                                  width: 10,
-                                  height: 10,
+                                  width: 10.5,
+                                  height: 10.5,
                                   child: CircularProgressIndicator(
                                       strokeWidth: 1.5, color: tint))
                             else

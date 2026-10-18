@@ -15,7 +15,7 @@ class DeferInit<T extends Widget?> extends StatefulWidget {
   final Widget emptyWidget;
 
   @override
-  _DeferInitState<T> createState() => _DeferInitState<T>();
+  State<DeferInit<T>> createState() => _DeferInitState<T>();
 }
 
 class _DeferInitState<T extends Widget?> extends State<DeferInit<T>> {

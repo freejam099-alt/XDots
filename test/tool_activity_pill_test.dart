@@ -3,6 +3,7 @@ import 'package:chat_bot/module/claude/chat_data.dart';
 import 'package:chat_bot/module/claude/chat_screen.dart';
 import 'package:chat_bot/module/claude/widgets/action_icons.dart';
 import 'package:chat_bot/module/claude/widgets/gen_card.dart';
+import 'package:chat_bot/module/claude/widgets/dynamic_gradient_loader.dart';
 import 'package:chat_bot/module/claude/widgets/tool_card.dart';
 import 'package:chat_bot/utils/sp_util.dart';
 import 'package:flutter/material.dart';
@@ -158,6 +159,7 @@ void main() {
           tester.widget<Container>(pill).decoration! as BoxDecoration;
       expect(decoration.border, isNull);
       expect(decoration.gradient, isNotNull);
+      expect(decoration.boxShadow, isNull);
       expect(find.text('gpt-5...'), findsOneWidget);
       expect(find.text('dot_read'), findsNothing);
       expect(find.text('HTTP 503'), findsNothing);
@@ -214,13 +216,17 @@ void main() {
     await tester.pumpWidget(const SizedBox.shrink());
   });
 
-  testWidgets('generation while running has no giant aspect-ratio placeholder',
+  testWidgets('generation while running uses a compact animated loader',
       (tester) async {
     await tester.pumpWidget(host(const GenCard(
         isVideo: false, phase: GenPhase.generating, ratio: '9:16')));
     expect(find.byType(AspectRatio), findsNothing);
     expect(find.byType(ToolActivityPill), findsOneWidget);
-    expect(tester.getSize(find.byType(GenCard)).height, lessThan(60));
+    expect(find.byType(MuseDynamicGradientLoader), findsOneWidget);
+    expect(find.text('Membuat gambar…'), findsOneWidget);
+    expect(tester.getSize(find.byType(GenCard)).height, lessThan(100));
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox.shrink());
   });
 
   testWidgets(

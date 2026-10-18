@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'dart:io';
 
 import 'package:chat_bot/base.dart';
 import 'package:chat_bot/base/api.dart';
@@ -10,12 +9,15 @@ import 'package:chat_bot/hive_bean/openai_bean.dart';
 import 'package:chat_bot/hive_bean/supported_models.dart';
 import 'package:dart_openai/dart_openai.dart';
 import 'package:dio/dio.dart';
-import 'package:pretty_dio_logger/pretty_dio_logger.dart';
 
 class ZhiPuImpl extends APIImpl {
   @override
-  Future<String> generateChatTitle(String temperature, AllModelBean bean, String modelType,
-      List<ChatItem> originalChatItem, List<RequestParams> chatItems) async {
+  Future<String> generateChatTitle(
+      String temperature,
+      AllModelBean bean,
+      String modelType,
+      List<ChatItem> originalChatItem,
+      List<RequestParams> chatItems) async {
     Dio dio = initZhiQu(bean);
 
     var response = await dio.post("/api/paas/v4/chat/completions", data: {
@@ -50,8 +52,12 @@ class ZhiPuImpl extends APIImpl {
   }
 
   @override
-  Future<GenerateContentBean> generateContent(double temperature, AllModelBean bean, String modelType,
-      List<ChatItem> originalChatItem, List<RequestParams> chatItems) async {
+  Future<GenerateContentBean> generateContent(
+      double temperature,
+      AllModelBean bean,
+      String modelType,
+      List<ChatItem> originalChatItem,
+      List<RequestParams> chatItems) async {
     Dio dio = initZhiQu(bean);
 
     var response = await dio.post("/api/paas/v4/chat/completions", data: {
@@ -75,8 +81,8 @@ class ZhiPuImpl extends APIImpl {
   }
 
   @override
-  Future<List<OpenAIImageData>> generateOpenAIImage(
-      AllModelBean bean, String prompt, OpenAIImageStyle style, OpenAIImageSize size) async {
+  Future<List<OpenAIImageData>> generateOpenAIImage(AllModelBean bean,
+      String prompt, OpenAIImageStyle style, OpenAIImageSize size) async {
     try {
       Dio dio = initZhiQu(bean);
 
@@ -117,15 +123,26 @@ class ZhiPuImpl extends APIImpl {
   }
 
   @override
-  Future<Stream<GenerateContentBean>> streamGenerateContent(String temperature, AllModelBean bean, String modelType,
-      List<ChatItem> originalChatItem, List<RequestParams> chatItems, bool withoutHistoryMessage) async {
-    return _streamGenerateContent(temperature, bean, modelType, originalChatItem, chatItems, withoutHistoryMessage);
+  Future<Stream<GenerateContentBean>> streamGenerateContent(
+      String temperature,
+      AllModelBean bean,
+      String modelType,
+      List<ChatItem> originalChatItem,
+      List<RequestParams> chatItems,
+      bool withoutHistoryMessage) async {
+    return _streamGenerateContent(temperature, bean, modelType,
+        originalChatItem, chatItems, withoutHistoryMessage);
   }
 
   final splitter = const LineSplitter();
 
-  Stream<GenerateContentBean> _streamGenerateContent(String temperature, AllModelBean bean, String modelType,
-      List<ChatItem> originalChatItem, List<RequestParams> chatItems, bool withoutHistoryMessage) async* {
+  Stream<GenerateContentBean> _streamGenerateContent(
+      String temperature,
+      AllModelBean bean,
+      String modelType,
+      List<ChatItem> originalChatItem,
+      List<RequestParams> chatItems,
+      bool withoutHistoryMessage) async* {
     Dio dio = initZhiQu(bean, stream: true);
 
     var response = await dio.post("/api/paas/v4/chat/completions", data: {
@@ -182,7 +199,8 @@ class ZhiPuImpl extends APIImpl {
           try {
             if (modelStr.startsWith("data:")) {
               modelStr = modelStr.replaceAll("data:", "").trim();
-              final content = (jsonDecode(modelStr)["choices"][0]["delta"]["content"]);
+              final content =
+                  (jsonDecode(modelStr)["choices"][0]["delta"]["content"]);
               yield GenerateContentBean(content: content);
               modelStr = '';
             } else {
@@ -233,15 +251,6 @@ class ZhiPuImpl extends APIImpl {
         "Authorization": "Bearer ${bean.apiKey}",
       },
       responseType: stream ? ResponseType.stream : ResponseType.json,
-    ))
-      ..interceptors.add(PrettyDioLogger(
-        requestHeader: true,
-        requestBody: true,
-        responseBody: true,
-        responseHeader: true,
-        error: true,
-        compact: true,
-      ));
+    ));
   }
-
 }

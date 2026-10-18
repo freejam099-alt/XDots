@@ -1,11 +1,13 @@
 import 'dart:io';
 
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../app_theme.dart';
 import '../chat_data.dart';
+import 'dynamic_gradient_loader.dart';
 import 'save_menu.dart';
 import 'tool_card.dart';
 
@@ -61,7 +63,9 @@ class GenCard extends StatelessWidget {
             status:
                 phase == GenPhase.done ? ToolStatus.done : ToolStatus.running,
           ),
-        if (phase == GenPhase.done || phase == GenPhase.ratio) ...[
+        if (phase == GenPhase.done ||
+            phase == GenPhase.ratio ||
+            phase == GenPhase.generating) ...[
           if (showActivity) const SizedBox(height: 8),
           _phaseBody(context),
         ],
@@ -96,7 +100,30 @@ class GenCard extends StatelessWidget {
           onPick: onRatioPick,
         );
       case GenPhase.generating:
-        return const SizedBox.shrink();
+        final AppColors c = AppColors.of(context);
+        final bool animate =
+            !(MediaQuery.maybeOf(context)?.disableAnimations ?? false) &&
+                TickerMode.of(context);
+        return MuseDynamicGradientLoader(
+          width: 176,
+          height: 44,
+          borderRadius: 22,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              CupertinoActivityIndicator(
+                  radius: 8, color: c.accent, animating: animate),
+              const SizedBox(width: 8),
+              Text(
+                'Membuat ${isVideo ? 'video' : 'gambar'}…',
+                style: TextStyle(
+                    color: c.textPrimary,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500),
+              ),
+            ],
+          ),
+        );
       case GenPhase.done:
         if (result == null || result!.isEmpty) {
           final AppColors c = AppColors.of(context);
@@ -181,7 +208,9 @@ class _RatioBox extends StatelessWidget {
       final double fullW = _boxWidth(maxW, target);
       return TweenAnimationBuilder<double>(
         tween: Tween<double>(begin: 0, end: 1),
-        duration: const Duration(milliseconds: 950),
+        duration: MediaQuery.maybeOf(context)?.disableAnimations ?? false
+            ? Duration.zero
+            : const Duration(milliseconds: 950),
         curve: Curves.easeOutCubic,
         builder: (context, t, _) {
           final double w = 44 + (fullW - 44) * t;
@@ -240,14 +269,16 @@ class _ResultImageState extends State<_ResultImage> {
 
   @override
   Widget build(BuildContext context) {
+    final bool reduced =
+        MediaQuery.maybeOf(context)?.disableAnimations ?? false;
     final bool network =
         widget.path.startsWith('http://') || widget.path.startsWith('https://');
     return AspectRatio(
       aspectRatio: genAspect(widget.ratio == 'auto' ? '1:1' : widget.ratio),
       child: AnimatedOpacity(
-        duration: const Duration(milliseconds: 2500),
+        duration: reduced ? Duration.zero : const Duration(milliseconds: 2500),
         curve: Curves.easeOutCubic,
-        opacity: _opacity,
+        opacity: reduced ? 1 : _opacity,
         child: ClipRRect(
           borderRadius: BorderRadius.circular(14),
           child: network
