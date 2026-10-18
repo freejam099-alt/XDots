@@ -15,55 +15,162 @@ void main() {
     SettingVectorIcon(),
   ];
 
-  for (final size in [const Size(320, 640), const Size(844, 390)]) {
+  Future<void> setViewport(
+    WidgetTester tester,
+    Size size, {
+    double safeLeft = 0,
+    double safeRight = 0,
+  }) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = size;
+    tester.view.viewPadding = FakeViewPadding(
+      left: safeLeft,
+      right: safeRight,
+      top: 24,
+      bottom: 20,
+    );
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    addTearDown(tester.view.resetViewPadding);
+    addTearDown(tester.view.resetViewInsets);
+  }
+
+  Widget themedChat({
+    required bool keyboard,
+    required double safeLeft,
+    required double safeRight,
+  }) {
+    return MaterialApp(
+      theme: ThemeData(extensions: const [AppColors.light]),
+      builder: (context, child) => MediaQuery(
+        data: MediaQuery.of(context).copyWith(
+          padding: EdgeInsets.only(
+            left: safeLeft,
+            right: safeRight,
+            top: 24,
+            bottom: keyboard ? 0 : 20,
+          ),
+          viewInsets: EdgeInsets.only(bottom: keyboard ? 160 : 0),
+          disableAnimations: true,
+        ),
+        child: child!,
+      ),
+      home: ClaudeChatScreen(
+        navIcons: icons,
+        navIndex: 0,
+        onNavTap: (_) {},
+      ),
+    );
+  }
+
+  final viewports =
+      <({Size size, double safeLeft, double safeRight, double expectedWidth})>[
+    (
+      size: const Size(320, 640),
+      safeLeft: 0,
+      safeRight: 0,
+      expectedWidth: 288,
+    ),
+    (
+      size: const Size(390, 844),
+      safeLeft: 0,
+      safeRight: 0,
+      expectedWidth: 358,
+    ),
+    (
+      size: const Size(600, 844),
+      safeLeft: 0,
+      safeRight: 0,
+      expectedWidth: 430,
+    ),
+    // Landscape with asymmetric horizontal system insets.
+    (
+      size: const Size(844, 390),
+      safeLeft: 24,
+      safeRight: 16,
+      expectedWidth: 430,
+    ),
+    (
+      size: const Size(1200, 800),
+      safeLeft: 0,
+      safeRight: 0,
+      expectedWidth: 430,
+    ),
+  ];
+
+  for (final viewport in viewports) {
     for (final keyboard in [false, true]) {
-      testWidgets('standalone chat safe area $size keyboard=$keyboard',
-          (tester) async {
-        tester.view.devicePixelRatio = 1;
-        tester.view.physicalSize = size;
-        addTearDown(tester.view.resetPhysicalSize);
-        addTearDown(tester.view.resetDevicePixelRatio);
-        final keyboardHeight = keyboard ? 160.0 : 0.0;
-        await tester.pumpWidget(MaterialApp(
-          theme: ThemeData(extensions: const [AppColors.light]),
-          builder: (context, child) => MediaQuery(
-            data: MediaQuery.of(context).copyWith(
-              padding: EdgeInsets.only(top: 24, bottom: keyboard ? 0 : 20),
-              viewInsets: EdgeInsets.only(bottom: keyboardHeight),
-              disableAnimations: true,
+      testWidgets(
+        'input and navbar surfaces align at ${viewport.size} keyboard=$keyboard',
+        (tester) async {
+          await setViewport(
+            tester,
+            viewport.size,
+            safeLeft: viewport.safeLeft,
+            safeRight: viewport.safeRight,
+          );
+          await tester.pumpWidget(themedChat(
+            keyboard: keyboard,
+            safeLeft: viewport.safeLeft,
+            safeRight: viewport.safeRight,
+          ));
+          await tester.pumpAndSettle();
+
+          final inputFinder = find.byKey(const ValueKey('chat-input-surface'));
+          final navFinder = find.byKey(const ValueKey('floating-nav-surface'));
+          expect(inputFinder, findsOneWidget);
+          expect(navFinder, keyboard ? findsNothing : findsOneWidget);
+
+          final input = tester.getRect(inputFinder);
+          final expectedWidth = viewport.expectedWidth;
+          expect(input.width, closeTo(expectedWidth, 0.01));
+          expect(
+            input.center.dx,
+            closeTo(
+              (viewport.size.width + viewport.safeLeft - viewport.safeRight) /
+                  2,
+              0.01,
             ),
-            child: child!,
-          ),
-          home: ClaudeChatScreen(
-            navIcons: icons,
-            navIndex: 0,
-            onNavTap: (_) {},
-          ),
-        ));
-        await tester.pumpAndSettle();
-        expect(find.byType(FloatingPillNavbar),
-            keyboard ? findsNothing : findsOneWidget);
-        final input = tester.getRect(find.byType(ChatInputBar));
-        expect(input.bottom, lessThanOrEqualTo(size.height - keyboardHeight));
-        expect(input.left, greaterThanOrEqualTo(0));
-        expect(input.right, lessThanOrEqualTo(size.width));
-        if (!keyboard) {
-          final nav = tester
-              .getRect(find.byKey(const ValueKey('floating-nav-surface')));
-          expect(nav.bottom,
-              closeTo(size.height - 20 - AppDims.pillBottomGap, 0.01));
-          expect(input.bottom, lessThan(nav.top));
-        }
-        expect(find.text('Mulai percakapan baru'), findsOneWidget);
-        expect(tester.takeException(), isNull);
-        await tester.pumpWidget(const SizedBox.shrink());
-      });
+          );
+          expect(input.left, greaterThanOrEqualTo(viewport.safeLeft));
+          expect(input.right,
+              lessThanOrEqualTo(viewport.size.width - viewport.safeRight));
+
+          if (keyboard) {
+            expect(
+              input.bottom,
+              lessThanOrEqualTo(viewport.size.height - 160),
+            );
+          } else {
+            final nav = tester.getRect(navFinder);
+            expect(nav.width, closeTo(expectedWidth, 0.01));
+            expect(input.left, closeTo(nav.left, 0.01));
+            expect(input.right, closeTo(nav.right, 0.01));
+            expect(input.height, closeTo(48, 0.01));
+            expect(nav.height, closeTo(64, 0.01));
+            expect(nav.top - input.bottom, closeTo(10, 0.01));
+            expect(
+              nav.bottom,
+              closeTo(
+                viewport.size.height - 20 - AppDims.pillBottomGap,
+                0.01,
+              ),
+            );
+          }
+          expect(find.byType(FloatingPillNavbar),
+              keyboard ? findsNothing : findsOneWidget);
+          expect(find.text('Mulai percakapan baru'), findsOneWidget);
+          expect(tester.takeException(), isNull);
+          await tester.pumpWidget(const SizedBox.shrink());
+        },
+      );
     }
   }
 
   testWidgets('embedded chat leaves navbar ownership to its parent',
       (tester) async {
     await tester.pumpWidget(MaterialApp(
+      theme: ThemeData(extensions: const [AppColors.light]),
       builder: (context, child) => MediaQuery(
         data: MediaQuery.of(context).copyWith(disableAnimations: true),
         child: child!,

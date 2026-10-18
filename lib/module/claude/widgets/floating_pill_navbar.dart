@@ -27,12 +27,9 @@ class FloatingPillNavbar extends StatelessWidget {
         final double screenWidth = MediaQuery.sizeOf(context).width;
         // Use screen margins once, not again when the parent is already inset.
         // A tablet still gets a compact, centered navigation surface.
-        final double pillWidth = math.min(
-          AppDims.pillMaxWidth,
-          math.min(
-              constraints.maxWidth,
-              math.min(screenWidth - AppDims.screenPaddingH * 2,
-                  screenWidth * AppDims.pillWidthFactor)),
+        final double pillWidth = AppDims.floatingBarWidth(
+          screenWidth,
+          constraints.maxWidth,
         );
         final double slotWidth = pillWidth / icons.length;
         final double iconSize = (slotWidth * 0.38).clamp(24.0, 26.0);

@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -336,10 +338,23 @@ class AppDims {
   static const double pillBottomGap = 12.0;
   static const double pillInnerPaddingH = 10.0;
 
-  static const double inputWidthFactor = 0.88;
-  static const double inputMinHeight = 60.0;
+  /// Input and navigation share edges, even inside an already padded parent.
+  /// Cap both on large screens rather than stretching the composer alone.
+  static double floatingBarWidth(double screenWidth, double availableWidth) {
+    return math.max(
+      0,
+      math.min(
+          pillMaxWidth,
+          math.min(
+              availableWidth,
+              math.min(screenWidth - screenPaddingH * 2,
+                  screenWidth * pillWidthFactor))),
+    );
+  }
+
+  static const double inputMinHeight = 48.0;
   static const int inputMaxLines = 5;
-  static const double inputRadiusSingle = 26.0;
+  static const double inputRadiusSingle = 24.0;
   static const double inputRadiusMulti = 24.0;
   static const double inputGapToNav = 10.0;
 
