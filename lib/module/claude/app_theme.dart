@@ -114,7 +114,7 @@ class AppColors extends ThemeExtension<AppColors> {
     menuBg: Color(0xFFFFFFFF),
     avatarBg: Color(0xFFF5E6C8),
     menuIcon: Color(0xFF1A1F2B),
-    shadowOpacity: 0.07,
+    shadowOpacity: 0.08,
     shadowBlur: 24,
     menuShadowBlur: 24,
   );
@@ -152,7 +152,7 @@ class AppColors extends ThemeExtension<AppColors> {
     menuBg: Color(0xFF2A2D33),
     avatarBg: Color(0xFF23262C),
     menuIcon: Color(0xFFF2F4F7),
-    shadowOpacity: 0.35,
+    shadowOpacity: 0.16,
     shadowBlur: 24,
     menuShadowBlur: 20,
   );
@@ -177,7 +177,7 @@ class AppColors extends ThemeExtension<AppColors> {
 
   BoxShadow get shadowFloat {
     return BoxShadow(
-      color: const Color(0xFF000000).withOpacity(shadowOpacity),
+      color: accent.withOpacity(shadowOpacity),
       blurRadius: shadowBlur,
       offset: const Offset(0, 6),
     );
@@ -185,8 +185,7 @@ class AppColors extends ThemeExtension<AppColors> {
 
   BoxShadow get shadowNav {
     return BoxShadow(
-      color: const Color(0xFF000000)
-          .withOpacity(brightness == Brightness.dark ? 0.35 : 0.08),
+      color: accent.withOpacity(brightness == Brightness.dark ? 0.16 : 0.08),
       blurRadius: 24,
       offset: const Offset(0, 8),
     );

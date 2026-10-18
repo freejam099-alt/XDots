@@ -1,16 +1,12 @@
 import 'dart:io';
-import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
-import 'package:loading_animation_widget/loading_animation_widget.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../app_theme.dart';
 import '../chat_data.dart';
-import 'bubble.dart';
 import 'save_menu.dart';
-import 'streaming_text.dart';
 import 'tool_card.dart';
 
 /// Fase generasi gambar/video.
@@ -32,6 +28,7 @@ double genAspect(String ratio) => kGenRatios[ratio] ?? 1.0;
 /// Kotak rasio tanpa border, gradasi, kecil membulat ala ChatGPT.
 class GenCard extends StatelessWidget {
   final bool isVideo;
+  final bool showActivity;
   final GenPhase phase;
   final String prompt;
   final String ratio;
@@ -42,6 +39,7 @@ class GenCard extends StatelessWidget {
     super.key,
     required this.isVideo,
     required this.phase,
+    this.showActivity = true,
     this.prompt = '',
     this.ratio = 'auto',
     this.result,
@@ -56,13 +54,17 @@ class GenCard extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
-        ToolCallCard(
-          toolName: _toolName,
-          detail: _phaseLabel(),
-          status: phase == GenPhase.done ? ToolStatus.done : ToolStatus.running,
-        ),
-        const SizedBox(height: 8),
-        _phaseBody(context),
+        if (showActivity)
+          ToolCallCard(
+            toolName: _toolName,
+            detail: _phaseLabel(),
+            status:
+                phase == GenPhase.done ? ToolStatus.done : ToolStatus.running,
+          ),
+        if (phase == GenPhase.done || phase == GenPhase.ratio) ...[
+          if (showActivity) const SizedBox(height: 8),
+          _phaseBody(context),
+        ],
       ],
     );
   }
@@ -85,16 +87,16 @@ class GenCard extends StatelessWidget {
   Widget _phaseBody(BuildContext context) {
     switch (phase) {
       case GenPhase.thinking:
-        return const TypingBubble();
+        return const SizedBox.shrink();
       case GenPhase.prompting:
-        return _PromptBubble(prompt: prompt);
+        return const SizedBox.shrink();
       case GenPhase.ratio:
         return _RatioBox(
           ratio: ratio,
           onPick: onRatioPick,
         );
       case GenPhase.generating:
-        return _GeneratingBox(ratio: ratio, isVideo: isVideo);
+        return const SizedBox.shrink();
       case GenPhase.done:
         if (result == null || result!.isEmpty) {
           final AppColors c = AppColors.of(context);
@@ -134,25 +136,6 @@ class GenCard extends StatelessWidget {
           ),
         );
     }
-  }
-}
-
-class _PromptBubble extends StatelessWidget {
-  final String prompt;
-  const _PromptBubble({required this.prompt});
-
-  @override
-  Widget build(BuildContext context) {
-    final AppColors c = AppColors.of(context);
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: BoxDecoration(
-        color: c.aiBubble,
-        borderRadius: BorderRadius.circular(AppDims.bubbleRadius),
-      ),
-      child: StreamingText(text: prompt),
-    );
   }
 }
 
@@ -232,126 +215,6 @@ class _RatioBox extends StatelessWidget {
       );
     });
   }
-}
-
-/// Saat membuat: gambar = kilau gradasi bergerak, video = border beam.
-class _GeneratingBox extends StatefulWidget {
-  final String ratio;
-  final bool isVideo;
-  const _GeneratingBox({required this.ratio, required this.isVideo});
-
-  @override
-  State<_GeneratingBox> createState() => _GeneratingBoxState();
-}
-
-class _GeneratingBoxState extends State<_GeneratingBox>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _ac = AnimationController(
-      vsync: this, duration: const Duration(milliseconds: 2600))
-    ..repeat();
-
-  @override
-  void dispose() {
-    _ac.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final AppColors c = AppColors.of(context);
-    final double aspect = _aspectOf(widget.ratio);
-    return LayoutBuilder(builder: (context, cons) {
-      final double maxW = cons.maxWidth.isFinite ? cons.maxWidth : 300;
-      return Align(
-        alignment: Alignment.topLeft,
-        child: SizedBox(
-          width: _boxWidth(maxW, aspect),
-          child: AspectRatio(
-            aspectRatio: aspect,
-            child: AnimatedBuilder(
-              animation: _ac,
-              builder: (context, _) {
-                final double t = _ac.value;
-                final Widget dots = Center(
-                  child: LoadingAnimationWidget.prograssiveDots(
-                      color: c.accent, size: 30),
-                );
-                if (widget.isVideo) {
-                  return CustomPaint(
-                    painter:
-                        _BeamPainter(t: t, fill: c.surface, accent: c.accent),
-                    child: dots,
-                  );
-                }
-                return Container(
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(14),
-                    gradient: LinearGradient(
-                      begin: Alignment(-1.8 + 3.6 * t, -1),
-                      end: Alignment(-0.6 + 3.6 * t, 1),
-                      colors: [c.surface, c.surfaceSoft, c.surface],
-                    ),
-                  ),
-                  child: dots,
-                );
-              },
-            ),
-          ),
-        ),
-      );
-    });
-  }
-}
-
-/// Border beam: sinar gradasi berputar mengelilingi tepi kotak.
-class _BeamPainter extends CustomPainter {
-  final double t;
-  final Color fill;
-  final Color accent;
-  _BeamPainter({required this.t, required this.fill, required this.accent});
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final Rect rect = Offset.zero & size;
-    final RRect rr =
-        RRect.fromRectAndRadius(rect, const Radius.circular(14)).deflate(2);
-    canvas.drawRRect(rr, Paint()..color = fill);
-    canvas.drawRRect(
-        rr,
-        Paint()
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = 2
-          ..color = accent.withOpacity(0.16));
-    final Shader sweep = SweepGradient(
-      colors: [
-        const Color(0x00FFFFFF),
-        accent,
-        const Color(0xFFB388FF),
-        const Color(0xFF4DD0E1),
-        const Color(0xFFFF80AB),
-        const Color(0x00FFFFFF),
-      ],
-      stops: const [0.0, 0.1, 0.26, 0.42, 0.56, 0.68],
-      transform: GradientRotation(t * 2 * math.pi),
-    ).createShader(rect);
-    canvas.drawRRect(
-        rr,
-        Paint()
-          ..shader = sweep
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = 8
-          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 9));
-    canvas.drawRRect(
-        rr,
-        Paint()
-          ..shader = sweep
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = 3
-          ..strokeCap = StrokeCap.round);
-  }
-
-  @override
-  bool shouldRepaint(covariant _BeamPainter old) => old.t != t;
 }
 
 class _ResultImage extends StatefulWidget {

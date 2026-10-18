@@ -375,7 +375,6 @@ class _CardSurface extends StatelessWidget {
         decoration: BoxDecoration(
             color: c.surface,
             borderRadius: BorderRadius.circular(26),
-            border: Border.all(color: c.textMuted.withOpacity(0.08)),
             boxShadow: [c.shadowFloat]),
         child: child);
   }

@@ -46,6 +46,8 @@ class ChatMsg {
 
   /// Diisi hanya untuk [MessageType.tool].
   final String? toolName;
+  final String? modelName;
+  final String? activityGroupId;
   final String? toolDetail;
   final ToolStatus toolStatus;
 
@@ -74,6 +76,8 @@ class ChatMsg {
     this.requestId,
     this.approvalStatus = ApprovalStatus.pending,
     this.toolName,
+    this.modelName,
+    this.activityGroupId,
     this.toolDetail,
     this.toolStatus = ToolStatus.done,
     this.attachments = const [],
@@ -98,6 +102,8 @@ class ChatMsg {
     String? requestId,
     ApprovalStatus? approvalStatus,
     String? toolName,
+    String? modelName,
+    String? activityGroupId,
     String? toolDetail,
     ToolStatus? toolStatus,
     List<MsgAttachment>? attachments,
@@ -121,6 +127,8 @@ class ChatMsg {
       requestId: requestId ?? this.requestId,
       approvalStatus: approvalStatus ?? this.approvalStatus,
       toolName: toolName ?? this.toolName,
+      modelName: modelName ?? this.modelName,
+      activityGroupId: activityGroupId ?? this.activityGroupId,
       toolDetail: toolDetail ?? this.toolDetail,
       toolStatus: toolStatus ?? this.toolStatus,
       attachments: attachments ?? this.attachments,
@@ -147,6 +155,8 @@ class ChatMsg {
       'requestId': requestId,
       'approvalStatus': approvalStatus.index,
       'toolName': toolName,
+      'modelName': modelName,
+      'activityGroupId': activityGroupId,
       'toolDetail': toolDetail,
       'toolStatus': toolStatus.index,
       'attachments': [for (final MsgAttachment a in attachments) a.toJson()],
@@ -173,7 +183,8 @@ class ChatMsg {
     final int rawStatus = (json['toolStatus'] as num?)?.toInt() ?? 1;
     // Tidak ada pekerjaan yang tetap hidup setelah sesi dipulihkan.
     final int statusIndex = rawStatus == ToolStatus.done.index
-        ? ToolStatus.done.index : ToolStatus.failed.index;
+        ? ToolStatus.done.index
+        : ToolStatus.failed.index;
     final dynamic rawAttach = json['attachments'];
     return ChatMsg(
       isUser: json['isUser'] == true,
@@ -189,6 +200,8 @@ class ChatMsg {
       // Riwayat tidak boleh menghidupkan ulang permintaan persetujuan.
       approvalStatus: _restoredApproval(json['approvalStatus']),
       toolName: json['toolName'] as String?,
+      modelName: json['modelName'] as String?,
+      activityGroupId: json['activityGroupId'] as String?,
       toolDetail: json['toolDetail'] as String?,
       toolStatus: ToolStatus
           .values[statusIndex.clamp(0, ToolStatus.values.length - 1).toInt()],

@@ -63,7 +63,7 @@ class MarkdownBubble extends StatelessWidget {
         ),
         tableHead: body.copyWith(fontWeight: FontWeight.bold),
         tableBody: body,
-        tableBorder: TableBorder.all(color: c.surfaceSoft, width: 1),
+        tableBorder: const TableBorder(),
       ),
       builders: {
         'code': _MuseCodeBuilder(),

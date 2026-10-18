@@ -24,7 +24,6 @@ class SourcesRow extends StatelessWidget {
       decoration: BoxDecoration(
         color: c.surfaceSoft,
         shape: BoxShape.circle,
-        border: Border.all(color: c.aiBubble, width: 2),
       ),
       child: ClipOval(
         child: Image.network(
@@ -81,8 +80,8 @@ class SourcesRow extends StatelessWidget {
         final AppColors c = AppColors.of(ctx);
         return Dialog(
           backgroundColor: c.surface,
-          shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(24)),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
           child: Padding(
             padding: const EdgeInsets.all(16),
             child: Column(
@@ -105,8 +104,7 @@ class SourcesRow extends StatelessWidget {
                           onTap: () => launchUrl(Uri.parse(u),
                               mode: LaunchMode.externalApplication),
                           child: Padding(
-                            padding:
-                                const EdgeInsets.symmetric(vertical: 8),
+                            padding: const EdgeInsets.symmetric(vertical: 8),
                             child: Row(
                               children: [
                                 _icon(c, u),
@@ -116,8 +114,7 @@ class SourcesRow extends StatelessWidget {
                                       maxLines: 1,
                                       overflow: TextOverflow.ellipsis,
                                       style: TextStyle(
-                                          fontSize: 14,
-                                          color: c.textPrimary)),
+                                          fontSize: 14, color: c.textPrimary)),
                                 ),
                               ],
                             ),

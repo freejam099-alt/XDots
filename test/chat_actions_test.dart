@@ -106,8 +106,8 @@ void main() {
             toolName: 'dot_read',
             status: ToolStatus.failed,
             result: 'HTTP 503'))));
-    expect(find.text('Tindakan gagal'), findsOneWidget);
-    await tester.tap(find.text('Lihat detail kegagalan'));
+    expect(find.bySemanticsLabel('Tindakan gagal: dot_read'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('tool-activity-pill')));
     await tester.pumpAndSettle();
     expect(find.text('HTTP 503'), findsOneWidget);
   });

@@ -26,6 +26,7 @@ class ChatBubble extends StatelessWidget {
       decoration: BoxDecoration(
         color: isUser ? c.userBubble : c.aiBubble,
         borderRadius: BorderRadius.circular(AppDims.bubbleRadius),
+        boxShadow: [c.shadowFloat],
       ),
       child: Text(
         text,
@@ -135,6 +136,7 @@ class _TypingBubbleState extends State<TypingBubble>
               decoration: BoxDecoration(
                 color: c.aiBubble,
                 borderRadius: BorderRadius.circular(AppDims.bubbleRadius),
+                boxShadow: [c.shadowFloat],
               ),
               child: AnimatedBuilder(
                 animation: _c,

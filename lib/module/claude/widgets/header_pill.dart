@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../app_theme.dart';
 import 'agent_avatar.dart';
+import 'action_icons.dart';
 import 'vector_icons.dart';
 
 export 'agent_avatar.dart' show AgentActivity;
@@ -149,7 +150,8 @@ Future<void> _showDeletePopup(
                     const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
               ),
               onPressed: () => Navigator.of(dialogContext).pop(true),
-              icon: const Icon(Icons.delete_outline_rounded),
+              icon: ActionVectorIcon(
+                  kind: ActionIconKind.delete, size: 22, color: c.pdfRed),
               label: const Text('Hapus semua pesan'),
             ),
           ),
