@@ -183,8 +183,8 @@ class AppColors extends ThemeExtension<AppColors> {
 
   BoxShadow get shadowNav {
     return BoxShadow(
-      color: const Color(0xFF000000).withOpacity(
-          brightness == Brightness.dark ? 0.35 : 0.08),
+      color: const Color(0xFF000000)
+          .withOpacity(brightness == Brightness.dark ? 0.35 : 0.08),
       blurRadius: 24,
       offset: const Offset(0, 8),
     );
@@ -192,8 +192,8 @@ class AppColors extends ThemeExtension<AppColors> {
 
   BoxShadow get shadowMenu {
     return BoxShadow(
-      color: const Color(0xFF000000).withOpacity(
-          brightness == Brightness.dark ? 0.35 : 0.07),
+      color: const Color(0xFF000000)
+          .withOpacity(brightness == Brightness.dark ? 0.35 : 0.07),
       blurRadius: menuShadowBlur,
       offset: const Offset(0, 6),
     );
@@ -313,8 +313,7 @@ class AppColors extends ThemeExtension<AppColors> {
       menuBg: lerpColor(menuBg, other.menuBg),
       menuIcon: lerpColor(menuIcon, other.menuIcon),
       avatarBg: lerpColor(avatarBg, other.avatarBg),
-      shadowOpacity:
-          shadowOpacity + (other.shadowOpacity - shadowOpacity) * t,
+      shadowOpacity: shadowOpacity + (other.shadowOpacity - shadowOpacity) * t,
       shadowBlur: shadowBlur + (other.shadowBlur - shadowBlur) * t,
       menuShadowBlur:
           menuShadowBlur + (other.menuShadowBlur - menuShadowBlur) * t,
@@ -330,9 +329,10 @@ class AppDims {
   static const String fontFamily = 'XDot';
   static const String codeFontFamily = 'monospace';
 
-  static const double pillWidthFactor = 0.82;
-  static const double pillHeight = 58.0;
-  static const double indicatorDiameter = 46.0;
+  static const double pillWidthFactor = 0.92;
+  static const double pillMaxWidth = 430.0;
+  static const double pillHeight = 64.0;
+  static const double indicatorDiameter = 52.0;
   static const double pillBottomGap = 12.0;
   static const double pillInnerPaddingH = 10.0;
 

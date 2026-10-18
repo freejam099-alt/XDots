@@ -186,8 +186,8 @@ Future<void> _showDeletePopup(
   if (confirmed == true && context.mounted) onDeleteMessages();
 }
 
-/// Header: tombol menu kiri + pill Muse tengah + bubble kanan
-/// (obrolan baru & hapus, satu background, jarak dekat).
+/// Centered character above its name, with independent side controls.
+/// Equal side clearance keeps the character centered even on narrow phones.
 class MuseHeader extends StatelessWidget {
   final String name;
   final String? status;
@@ -212,94 +212,85 @@ class MuseHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     final AppColors c = AppColors.of(context);
     final String? visibleStatus = statusLabel ?? status;
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.only(left: 16 - AppDims.screenPaddingH),
-          child: MenuButton(onTap: onMenuTap),
-        ),
-        const SizedBox(width: 10),
-        Expanded(
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 200),
-            curve: Curves.easeOutCubic,
-            height: visibleStatus == null ? 56 : 68,
-            padding: const EdgeInsets.symmetric(horizontal: 18),
-            decoration: BoxDecoration(
-              color: c.surface,
-              borderRadius: BorderRadius.circular(999),
-              boxShadow: [c.shadowFloat],
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                activity == null
-                    ? Container(
-                        width: 44,
-                        height: 44,
-                        decoration: BoxDecoration(
-                          color: c.avatarBg,
-                          shape: BoxShape.circle,
-                        ),
-                        child: Center(
-                          child: Text('M',
-                              style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  color: c.textTitle)),
-                        ),
-                      )
-                    : AgentAvatar(activity: activity!, size: 44),
-                const SizedBox(width: 10),
-                Flexible(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(name,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 15,
-                              color: c.textPrimary)),
-                      if (visibleStatus != null)
-                        Text(visibleStatus,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(fontSize: 13, color: c.textMuted)),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final double avatarSize =
+            (constraints.maxWidth * 0.14).clamp(40.0, 48.0);
+        // Reserve the same space on both sides for the two right-hand actions.
+        // The center column grows naturally with accessibility text scaling.
+        return Stack(
+          children: [
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 100),
+              child: Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    AgentAvatar(
+                      activity: activity ?? AgentActivity.idle,
+                      size: avatarSize,
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 15,
+                        color: c.textPrimary,
+                      ),
+                    ),
+                    if (visibleStatus != null) ...[
+                      const SizedBox(height: 2),
+                      Text(
+                        visibleStatus,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        textAlign: TextAlign.center,
+                        style: TextStyle(fontSize: 13, color: c.textMuted),
+                      ),
                     ],
-                  ),
+                  ],
                 ),
-              ],
+              ),
             ),
-          ),
-        ),
-        const SizedBox(width: 10),
-        Container(
-          height: 52,
-          padding: const EdgeInsets.symmetric(horizontal: 4),
-          decoration: BoxDecoration(
-            color: c.surface,
-            borderRadius: BorderRadius.circular(999),
-            boxShadow: [c.shadowFloat],
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              _CircleIconButton(
-                icon: const NewChatVectorIcon(size: 22),
-                onTap: onNewChatTap,
+            Positioned(
+              left: 0,
+              top: 0,
+              child: MenuButton(onTap: onMenuTap),
+            ),
+            Positioned(
+              right: 0,
+              top: 0,
+              child: Container(
+                height: 52,
+                padding: const EdgeInsets.symmetric(horizontal: 4),
+                decoration: BoxDecoration(
+                  color: c.surface,
+                  borderRadius: BorderRadius.circular(999),
+                  boxShadow: [c.shadowFloat],
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    _CircleIconButton(
+                      icon: const NewChatVectorIcon(size: 22),
+                      onTap: onNewChatTap,
+                    ),
+                    _CircleIconButton(
+                      icon: const MoreDotsVectorIcon(size: 22),
+                      onTap: () => _showDeletePopup(
+                          context, () => onDeleteMessages?.call()),
+                    ),
+                  ],
+                ),
               ),
-              _CircleIconButton(
-                icon: const MoreDotsVectorIcon(size: 22),
-                onTap: () =>
-                    _showDeletePopup(context, () => onDeleteMessages?.call()),
-              ),
-            ],
-          ),
-        ),
-      ],
+            ),
+          ],
+        );
+      },
     );
   }
 }

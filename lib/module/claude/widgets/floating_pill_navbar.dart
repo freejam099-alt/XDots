@@ -1,28 +1,11 @@
-import 'package:flutter/material.dart';
 import 'dart:math' as math;
+
+import 'package:flutter/material.dart';
 
 import '../app_theme.dart';
 
-/// Bottom navigation mengambang berbentuk pill, minimalis soft.
-/// Semua warna dari [AppColors] (terang/gelap otomatis).
-///
-/// Contoh pemakaian di Scaffold:
-/// ```dart
-/// Scaffold(
-///   extendBody: true,
-///   body: Stack(children: [content]),
-///   bottomNavigationBar: Padding(
-///     padding: EdgeInsets.only(
-///       bottom: AppDims.pillBottomGap + MediaQuery.of(context).padding.bottom,
-///     ),
-///     child: FloatingPillNavbar(
-///       icons: const [...5 icon 24x24...],
-///       currentIndex: index,
-///       onTap: (i) => setState(() => index = i),
-///     ),
-///   ),
-/// );
-/// ```
+/// Floating navigation with equal tab slots and screen-relative side margins.
+/// Tab order, labels and callbacks are shared by embedded and standalone chat.
 class FloatingPillNavbar extends StatelessWidget {
   final List<Widget> icons;
   final int currentIndex;
@@ -41,17 +24,22 @@ class FloatingPillNavbar extends StatelessWidget {
     const labels = ['Chat', 'Prompt', 'Ruang Kreasi', 'Server', 'Pengaturan'];
     return LayoutBuilder(
       builder: (context, constraints) {
-        // A percentage-only width becomes an oversized strip on tablets and
-        // can exceed a parent with side insets. Keep it centered and bounded.
+        final double screenWidth = MediaQuery.sizeOf(context).width;
+        // Use screen margins once, not again when the parent is already inset.
+        // A tablet still gets a compact, centered navigation surface.
         final double pillWidth = math.min(
-          430,
+          AppDims.pillMaxWidth,
           math.min(
-            constraints.maxWidth,
-            MediaQuery.sizeOf(context).width * AppDims.pillWidthFactor,
-          ),
+              constraints.maxWidth,
+              math.min(screenWidth - AppDims.screenPaddingH * 2,
+                  screenWidth * AppDims.pillWidthFactor)),
         );
+        final double slotWidth = pillWidth / icons.length;
+        final double iconSize = (slotWidth * 0.38).clamp(24.0, 26.0);
+        final double indicatorWidth = math.min(64, slotWidth - 4);
         return Center(
           child: SizedBox(
+            key: const ValueKey('floating-nav-surface'),
             width: pillWidth,
             height: AppDims.pillHeight,
             child: DecoratedBox(
@@ -60,36 +48,34 @@ class FloatingPillNavbar extends StatelessWidget {
                 shape: const StadiumBorder(),
                 shadows: [c.shadowNav],
               ),
-              child: LayoutBuilder(
-                builder: (context, constraints) {
-                  // Every icon and the indicator share an equal slot.
-                  final double slotW = constraints.maxWidth / icons.length;
-                  return Stack(
-                    children: [
-                      AnimatedPositioned(
-                        duration: AppDims.animNav,
-                        curve: Curves.easeOutCubic,
-                        left: currentIndex * slotW +
-                            (slotW - AppDims.indicatorDiameter) / 2,
-                        top: (AppDims.pillHeight - AppDims.indicatorDiameter) /
-                            2,
-                        child: IgnorePointer(
-                          child: Container(
-                            width: AppDims.indicatorDiameter,
-                            height: AppDims.indicatorDiameter,
-                            decoration: BoxDecoration(
-                              color: c.indicatorBg,
-                              shape: BoxShape.circle,
-                            ),
-                          ),
+              child: Stack(
+                children: [
+                  AnimatedPositioned(
+                    duration: AppDims.animNav,
+                    curve: Curves.easeOutCubic,
+                    left: currentIndex * slotWidth +
+                        (slotWidth - indicatorWidth) / 2,
+                    top: (AppDims.pillHeight - AppDims.indicatorDiameter) / 2,
+                    child: IgnorePointer(
+                      child: Container(
+                        key: const ValueKey('floating-nav-indicator'),
+                        width: indicatorWidth,
+                        height: AppDims.indicatorDiameter,
+                        decoration: ShapeDecoration(
+                          color: c.indicatorBg,
+                          shape: const StadiumBorder(),
                         ),
                       ),
-                      Row(
-                        children: List.generate(icons.length, (i) {
-                          return SizedBox(
-                            width: slotW,
-                            height: AppDims.pillHeight,
-                            child: Center(
+                    ),
+                  ),
+                  Row(
+                    children: List.generate(icons.length, (i) {
+                      return Expanded(
+                        child: SizedBox(
+                          height: AppDims.pillHeight,
+                          child: Center(
+                            child: Semantics(
+                              selected: i == currentIndex,
                               child: IconButton(
                                 tooltip: labels[i],
                                 constraints: const BoxConstraints.tightFor(
@@ -98,19 +84,18 @@ class FloatingPillNavbar extends StatelessWidget {
                                 ),
                                 padding: EdgeInsets.zero,
                                 onPressed: () => onTap(i),
-                                icon: SizedBox(
-                                  width: 24,
-                                  height: 24,
+                                icon: SizedBox.square(
+                                  dimension: iconSize,
                                   child: icons[i],
                                 ),
                               ),
                             ),
-                          );
-                        }),
-                      ),
-                    ],
-                  );
-                },
+                          ),
+                        ),
+                      );
+                    }),
+                  ),
+                ],
               ),
             ),
           ),

@@ -46,6 +46,10 @@ void main() {
     bool deleted = false;
     await tester.pumpWidget(
       MaterialApp(
+        builder: (context, child) => MediaQuery(
+          data: MediaQuery.of(context).copyWith(disableAnimations: true),
+          child: child!,
+        ),
         home: Scaffold(
           body: Center(
             child: MuseHeader(onDeleteMessages: () => deleted = true),
