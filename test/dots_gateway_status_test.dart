@@ -25,7 +25,7 @@ void main() {
         find.textContaining(RegExp(
             'Pengguna tidak perlu memasukkan API key|Users do not enter an API key')),
         findsOneWidget);
-    expect(find.textContaining('XDots'), findsOneWidget);
+    expect(find.textContaining('Ministral'), findsOneWidget);
     expect(find.textContaining('API key:'), findsNothing);
   });
 }

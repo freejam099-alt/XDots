@@ -7,7 +7,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
-	<string>XDots</string>
+	<string>Ministral</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -15,7 +15,7 @@
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleName</key>
-	<string>XDots</string>
+	<string>Ministral</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleSignature</key>
@@ -64,12 +64,12 @@
     </dict>
     <key>NSUbiquitousContainers</key>
     <dict>
-    <key>iCloud.com.dots.muse.models</key>
+    <key>iCloud.com.ministral.id.models</key>
     <dict>
       <key>NSUbiquitousContainerIsDocumentScopePublic</key>
       <true/>
       <key>NSUbiquitousContainerName</key>
-      <string>XDotsModel</string>
+      <string>MinistralModel</string>
       <key>NSUbiquitousContainerSupportedFolderLevels</key>
       <string>ANY</string>
     </dict>

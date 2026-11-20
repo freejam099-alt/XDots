@@ -24,8 +24,8 @@ import 'widgets/file_icon.dart';
 import 'widgets/floating_pill_navbar.dart';
 import 'widgets/gen_card.dart';
 import 'widgets/header_pill.dart';
+import 'widgets/markdown_bubble.dart';
 import 'widgets/message_actions.dart';
-import 'widgets/streaming_text.dart';
 import 'widgets/tool_card.dart';
 import 'widgets/vector_icons.dart';
 
@@ -1212,16 +1212,13 @@ class _ClaudeChatScreenState extends State<ClaudeChatScreen> {
                 maxWidth: MediaQuery.of(context).size.width *
                     AppDims.bubbleMaxWidthFactor,
               ),
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              decoration: BoxDecoration(
-                color: c.aiBubble,
-                borderRadius: BorderRadius.circular(AppDims.bubbleRadius),
-                boxShadow: [c.shadowFloat],
-              ),
+              padding: const EdgeInsets.symmetric(vertical: 4),
               child: ValueListenableBuilder<String>(
                 valueListenable: _streamNotifier,
-                builder: (context, v, _) =>
-                    StreamingText(text: MuseAi.stripToolMarkers(v)),
+                builder: (context, v, _) => MarkdownBubble(
+                  // Markdown dirender langsung saat streaming, bukan teks mentah.
+                  text: MuseAi.stripToolMarkers(v),
+                ),
               ),
             ),
           ),
@@ -1381,12 +1378,8 @@ class _ClaudeChatScreenState extends State<ClaudeChatScreen> {
         Flexible(
           child: Container(
             constraints: BoxConstraints(maxWidth: maxW),
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            decoration: BoxDecoration(
-              color: c.aiBubble,
-              borderRadius: BorderRadius.circular(AppDims.bubbleRadius),
-              boxShadow: [c.shadowFloat],
-            ),
+            // Le Chat: jawaban asisten tanpa bubble, hanya tipografi bersih.
+            padding: const EdgeInsets.symmetric(vertical: 4),
             // AI: markdown + blok cerdas (link/gambar/video) + sumber web.
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,

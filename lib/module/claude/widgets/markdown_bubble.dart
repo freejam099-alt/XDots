@@ -29,27 +29,42 @@ class MarkdownBubble extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final AppColors c = AppColors.of(context);
-    final TextStyle body = _body(c);
+    // Tipografi gaya Le Chat: rapi, jarak lega, heading tebal, kode oranye.
+    final TextStyle body = _body(c).copyWith(fontSize: 15, height: 1.55);
+    final TextStyle heading =
+        body.copyWith(fontWeight: FontWeight.w700, color: c.textTitle);
     return MarkdownBody(
       data: text,
       selectable: false,
       styleSheet: MarkdownStyleSheet(
         p: body,
-        h1: body.copyWith(fontWeight: FontWeight.bold, fontSize: 22),
-        h2: body.copyWith(fontWeight: FontWeight.bold, fontSize: 20),
-        h3: body.copyWith(fontWeight: FontWeight.bold, fontSize: 18),
+        pPadding: const EdgeInsets.only(bottom: 8),
+        h1: heading.copyWith(fontSize: 22),
+        h1Padding: const EdgeInsets.only(top: 12, bottom: 6),
+        h2: heading.copyWith(fontSize: 19),
+        h2Padding: const EdgeInsets.only(top: 10, bottom: 5),
+        h3: heading.copyWith(fontSize: 17),
+        h3Padding: const EdgeInsets.only(top: 8, bottom: 4),
+        h4: heading.copyWith(fontSize: 16),
+        h4Padding: const EdgeInsets.only(top: 6, bottom: 4),
+        h5: heading.copyWith(fontSize: 15),
+        h6: heading.copyWith(fontSize: 14),
         em: body.copyWith(fontStyle: FontStyle.italic),
-        strong: body.copyWith(fontWeight: FontWeight.bold),
+        strong: body.copyWith(fontWeight: FontWeight.w700),
         del: body.copyWith(decoration: TextDecoration.lineThrough),
         listBullet: body,
+        listIndent: 18,
+        listBulletPadding: const EdgeInsets.only(right: 6),
         a: body.copyWith(
           color: c.accent,
           decoration: TextDecoration.underline,
         ),
         code: body.copyWith(
-            fontSize: 14,
-            fontFamily: AppDims.codeFontFamily,
-            backgroundColor: c.surfaceSoft),
+          fontSize: 13,
+          fontFamily: AppDims.codeFontFamily,
+          color: c.accent,
+          backgroundColor: c.surfaceSoft,
+        ),
         codeblockDecoration: BoxDecoration(
           color: c.brightness == Brightness.light
               ? atomOneLightTheme['root']?.backgroundColor
@@ -60,10 +75,16 @@ class MarkdownBubble extends StatelessWidget {
         blockquoteDecoration: BoxDecoration(
           color: c.surfaceSoft,
           borderRadius: BorderRadius.circular(8),
+          border: Border(left: BorderSide(color: c.accent, width: 3)),
         ),
-        tableHead: body.copyWith(fontWeight: FontWeight.bold),
+        blockSpacing: 8,
+        tableHead: body.copyWith(fontWeight: FontWeight.w700),
         tableBody: body,
-        tableBorder: const TableBorder(),
+        tableBorder: TableBorder.all(
+          color: c.textMuted.withOpacity(0.25),
+          width: 1,
+        ),
+        tableCellsPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       ),
       builders: {
         'code': _MuseCodeBuilder(),

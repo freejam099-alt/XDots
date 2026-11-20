@@ -157,7 +157,7 @@ class MuseAi {
   /// Instruksi sistem: memberi tahu AI fitur aplikasi dan tools yang ada.
   static String systemPrompt() {
     final StringBuffer b = StringBuffer();
-    b.writeln('Kamu adalah Muse, asisten AI di dalam aplikasi XDots '
+    b.writeln('Kamu adalah Ministral, asisten AI di dalam aplikasi Ministral '
         '(Android). Jawab dalam bahasa yang dipakai pengguna '
         '(default Bahasa Indonesia), ringkas, jelas, dan ramah.');
     b.writeln();
@@ -574,7 +574,7 @@ class MuseAi {
         if (dots && (status == 401 || status == 403)) {
           throw MuseAiException(
               'Kunci akses Dots 1 mini ditolak EAY (HTTP 401/403). Pemilik '
-              'XDots perlu memperbarui rahasia build; jangan masukkan key '
+              'Ministral perlu memperbarui rahasia build; jangan masukkan key '
               'sebagai API key provider pengguna.',
               statusCode: status);
         }

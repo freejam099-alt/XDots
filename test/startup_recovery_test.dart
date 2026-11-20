@@ -12,7 +12,7 @@ void main() {
       calls++;
       return pending.future;
     }));
-    expect(find.text('XDots belum dapat dibuka'), findsOneWidget);
+    expect(find.text('Ministral belum dapat dibuka'), findsOneWidget);
     expect(find.textContaining('tidak dihapus'), findsOneWidget);
     await tester.tap(find.text('Coba lagi'));
     await tester.pump();

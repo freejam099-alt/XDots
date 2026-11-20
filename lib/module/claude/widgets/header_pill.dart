@@ -215,7 +215,7 @@ class MuseHeader extends StatelessWidget {
 
   const MuseHeader({
     super.key,
-    this.name = 'Muse',
+    this.name = 'Ministral',
     this.status,
     this.activity,
     this.statusLabel,

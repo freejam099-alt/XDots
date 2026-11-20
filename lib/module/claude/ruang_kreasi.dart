@@ -55,7 +55,7 @@ List<_ModelOption> _fetchedOptions(int kind) {
 
 List<_ModelOption> _chatOptions() {
   final List<_ModelOption> candidates = [
-    const _ModelOption(DotsGateway.legacyAlias, 'XDots built-in',
+    const _ModelOption(DotsGateway.legacyAlias, 'Ministral built-in',
         displayLabel: DotsGateway.displayName),
     ..._fetchedOptions(0),
     for (final String id in ModelStore.manualModels())
@@ -239,9 +239,9 @@ class DotsGatewayInfoCard extends StatelessWidget {
           Text(
             _t(
                 context,
-                'Pengguna tidak perlu memasukkan API key. XDots tidak menetapkan batas penggunaan per pengguna; kebijakan upstream dapat berlaku.',
-                'Users do not enter an API key. XDots imposes no per-user usage cap; upstream policies may apply.',
-                '用户无需输入 API 密钥。XDots 不设每用户用量上限；上游政策可能适用。'),
+                'Pengguna tidak perlu memasukkan API key. Ministral tidak menetapkan batas penggunaan per pengguna; kebijakan upstream dapat berlaku.',
+                'Users do not enter an API key. Ministral imposes no per-user usage cap; upstream policies may apply.',
+                '用户无需输入 API 密钥。Ministral 不设每用户用量上限；上游政策可能适用。'),
             style: TextStyle(color: c.textMuted, fontSize: 12, height: 1.35),
           ),
         ],

@@ -141,7 +141,7 @@ class McpClient {
     final dynamic initialized = await _rpc('initialize', <String, dynamic>{
       'protocolVersion': '2025-03-26',
       'capabilities': <String, dynamic>{},
-      'clientInfo': <String, dynamic>{'name': 'XDots', 'version': '1.0'},
+      'clientInfo': <String, dynamic>{'name': 'Ministral', 'version': '1.0'},
     });
     if (initialized is! Map) {
       throw const McpException('Respons initialize MCP tidak valid');

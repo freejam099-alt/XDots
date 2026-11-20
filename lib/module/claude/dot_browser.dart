@@ -74,7 +74,7 @@ class DotBrowser {
   static const String _ua =
       'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 '
       '(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
-  static const String _appUa = 'XDots/1.0 (dot-browser)';
+  static const String _appUa = 'Ministral/1.0 (dot-browser)';
   static const String _acceptLang = 'id-ID,id;q=0.9,en;q=0.8';
   static const Duration _timeout = Duration(seconds: 8);
 

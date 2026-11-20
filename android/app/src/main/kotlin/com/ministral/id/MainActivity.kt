@@ -1,4 +1,4 @@
-package com.dots.muse
+package com.ministral.id
 
 import io.flutter.embedding.android.FlutterActivity
 

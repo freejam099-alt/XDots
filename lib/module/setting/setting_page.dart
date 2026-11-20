@@ -484,7 +484,7 @@ class _SettingPageState extends ConsumerState<SettingPage> {
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(
-                                    "XDots for macOS",
+                                    "Ministral for macOS",
                                     style: Theme.of(context).textTheme.titleMedium,
                                   ),
                                   const SizedBox(height: 5),

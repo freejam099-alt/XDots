@@ -34,7 +34,7 @@ class DotsGateway {
   /// Empty-key builds keep other providers usable and explain how this
   /// built-in provider is enabled without exposing any secret.
   static String get configurationGuidance =>
-      'Dots 1 mini belum dikonfigurasi untuk build ini. Pemilik XDots perlu '
+      'Dots 1 mini belum dikonfigurasi untuk build ini. Pemilik Ministral perlu '
       'menyediakan EAY_API_KEY melalui secret saat build release; pengguna '
       'tidak perlu memasukkan API key.';
 

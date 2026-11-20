@@ -83,34 +83,35 @@ class AppColors extends ThemeExtension<AppColors> {
 
   static const AppColors light = AppColors(
     brightness: Brightness.light,
-    bgBase: Color(0xFFFAFAFA),
-    gradMid: Color(0xFFBBD6F8),
-    gradEnd: Color(0xFF8FC0F7),
-    textPrimary: Color(0xFF1A1F2B),
-    textTitle: Color(0xFF1F3A3D),
-    textHint: Color(0xFFA3A8B0),
-    textMuted: Color(0xFF6B7280),
-    aiBubble: Color(0xFFE9E9EB),
-    userBubble: Color(0xFFCDE3FA),
+    // Le Chat / Mistral: warm neutral canvas + signature orange accent.
+    bgBase: Color(0xFFFAF9F6),
+    gradMid: Color(0xFFF4F0E8),
+    gradEnd: Color(0xFFEFE8DC),
+    textPrimary: Color(0xFF1F1E1C),
+    textTitle: Color(0xFF2A2723),
+    textHint: Color(0xFFA6A29A),
+    textMuted: Color(0xFF736F68),
+    aiBubble: Color(0x00000000),
+    userBubble: Color(0xFFEFEDE7),
     surface: Color(0xFFFFFFFF),
-    surfaceSoft: Color(0xFFF0F1F3),
-    btnSecondary: Color(0xFFEEF0F2),
-    accent: Color(0xFF0A66D8),
-    accentEnd: Color(0xFF3A4FD0),
+    surfaceSoft: Color(0xFFF3F1EC),
+    btnSecondary: Color(0xFFEDEAE3),
+    accent: Color(0xFFFF8205),
+    accentEnd: Color(0xFFFA500F),
     linkGreen: Color(0xFF00D66F),
     pdfRed: Color(0xFFF0345A),
     seatAvailable: Color(0xFFC5CEDB),
     seatTaken: Color(0xFFEDEEF0),
-    seatSelected: Color(0xFF0A5FD0),
-    pillBg: Color(0xFFF5F5F6),
-    indicatorBg: Color(0xFFE4E5E8),
-    navIcon: Color(0xFF1A1F2B),
+    seatSelected: Color(0xFFFF8205),
+    pillBg: Color(0xFFFFFFFF),
+    indicatorBg: Color(0xFFFFE6D2),
+    navIcon: Color(0xFF4A4640),
     inputIcon: Color(0xFF1A1F2B),
     micIcon: Color(0xFF5F6672),
-    cursor: Color(0xFF0A66D8),
+    cursor: Color(0xFFFF8205),
     typingDot: Color(0xFF9AA0AA),
-    globeBox: Color(0xFFE3F0FD),
-    globeIcon: Color(0xFF0A66D8),
+    globeBox: Color(0xFFFFE9D6),
+    globeIcon: Color(0xFFEA6A00),
     menuBg: Color(0xFFFFFFFF),
     avatarBg: Color(0xFFF5E6C8),
     menuIcon: Color(0xFF1A1F2B),
@@ -121,34 +122,35 @@ class AppColors extends ThemeExtension<AppColors> {
 
   static const AppColors dark = AppColors(
     brightness: Brightness.dark,
-    bgBase: Color(0xFF0F1115),
-    gradMid: Color(0xFF12233A),
-    gradEnd: Color(0xFF1B3A63),
-    textPrimary: Color(0xFFECEFF4),
-    textTitle: Color(0xFFE6F0F0),
-    textHint: Color(0xFF6B7280),
-    textMuted: Color(0xFF9AA3AF),
-    aiBubble: Color(0xFF23262C),
-    userBubble: Color(0xFF1F3A5C),
-    surface: Color(0xFF1A1D22),
-    surfaceSoft: Color(0xFF23262C),
-    btnSecondary: Color(0xFF2A2D33),
-    accent: Color(0xFF4C8DF6),
-    accentEnd: Color(0xFF6A74E8),
+    // Le Chat / Mistral dark: warm charcoal, not blue.
+    bgBase: Color(0xFF161514),
+    gradMid: Color(0xFF1D1B18),
+    gradEnd: Color(0xFF26221D),
+    textPrimary: Color(0xFFF0EEE9),
+    textTitle: Color(0xFFFAF7F1),
+    textHint: Color(0xFF858079),
+    textMuted: Color(0xFFA39D94),
+    aiBubble: Color(0x00000000),
+    userBubble: Color(0xFF2B2925),
+    surface: Color(0xFF201E1B),
+    surfaceSoft: Color(0xFF292621),
+    btnSecondary: Color(0xFF302D28),
+    accent: Color(0xFFFF8A2B),
+    accentEnd: Color(0xFFFA500F),
     linkGreen: Color(0xFF00D66F),
     pdfRed: Color(0xFFF0345A),
     seatAvailable: Color(0xFF4A5568),
     seatTaken: Color(0xFF2A2F38),
-    seatSelected: Color(0xFF4C8DF6),
-    pillBg: Color(0xFF1A1D22),
-    indicatorBg: Color(0xFF2E3239),
-    navIcon: Color(0xFFE6E8EC),
+    seatSelected: Color(0xFFFF8A2B),
+    pillBg: Color(0xFF201E1B),
+    indicatorBg: Color(0xFF4A3626),
+    navIcon: Color(0xFFDAD5CC),
     inputIcon: Color(0xFFE6E8EC),
     micIcon: Color(0xFF9AA3AF),
-    cursor: Color(0xFF4C8DF6),
+    cursor: Color(0xFFFF8A2B),
     typingDot: Color(0xFF6B7280),
-    globeBox: Color(0xFF1F3A5C),
-    globeIcon: Color(0xFF4C8DF6),
+    globeBox: Color(0xFF3B2B1C),
+    globeIcon: Color(0xFFFF8A2B),
     menuBg: Color(0xFF2A2D33),
     avatarBg: Color(0xFF23262C),
     menuIcon: Color(0xFFF2F4F7),
@@ -382,7 +384,7 @@ ThemeData withAuraPopupTheme(ThemeData theme, AppColors colors) {
 class AppDims {
   AppDims._();
 
-  /// Font bawaan XDots untuk UI + teks chat (kode tetap monospace).
+  /// Font bawaan Ministral untuk UI + teks chat (kode tetap monospace).
   static const String fontFamily = 'XDot';
   static const String codeFontFamily = 'monospace';
 
@@ -409,15 +411,15 @@ class AppDims {
 
   static const double inputMinHeight = 48.0;
   static const int inputMaxLines = 5;
-  static const double inputRadiusSingle = 24.0;
-  static const double inputRadiusMulti = 24.0;
+  static const double inputRadiusSingle = 18.0;
+  static const double inputRadiusMulti = 18.0;
   static const double inputGapToNav = 10.0;
 
   static const double screenPaddingH = 16.0;
   static const double chatFontSize = 17.0;
   static const double chatLineHeight = 1.3;
   static const double bubbleMaxWidthFactor = 0.80;
-  static const double bubbleRadius = 22.0;
+  static const double bubbleRadius = 18.0;
 
   static const Duration animFast = Duration(milliseconds: 100);
   static const Duration animMed = Duration(milliseconds: 180);

@@ -615,11 +615,12 @@ class _ChatInputBarState extends State<ChatInputBar> {
                                     width: 36,
                                     height: 36,
                                     decoration: BoxDecoration(
-                                      color: c.accent,
+                                      gradient: LinearGradient(
+                                          colors: [c.accent, c.accentEnd]),
                                       shape: BoxShape.circle,
                                     ),
-                                    child: const Center(
-                                      child: SendVectorIcon(
+                                    child: Center(
+                                      child: AppIcons.send(
                                           size: 20, color: Colors.white),
                                     ),
                                   ),

@@ -28,7 +28,7 @@ class _StartupRecoveryAppState extends State<StartupRecoveryApp> {
   @override
   Widget build(BuildContext context) => MaterialApp(
         debugShowCheckedModeBanner: false,
-        title: 'XDots',
+        title: 'Ministral',
         theme: ThemeData(colorSchemeSeed: const Color(0xFF429DFA)),
         home: Scaffold(
           body: SafeArea(
@@ -43,7 +43,7 @@ class _StartupRecoveryAppState extends State<StartupRecoveryApp> {
                     children: [
                       const Icon(Icons.storage_rounded, size: 40),
                       const SizedBox(height: 20),
-                      const Text('XDots belum dapat dibuka',
+                      const Text('Ministral belum dapat dibuka',
                           style: TextStyle(
                               fontSize: 24, fontWeight: FontWeight.w600)),
                       const SizedBox(height: 12),

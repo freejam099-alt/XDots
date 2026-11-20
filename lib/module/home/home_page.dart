@@ -31,7 +31,7 @@ class _HomePageState extends ConsumerState<HomePage>
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     // VersionCheck repo lama dimatikan: menagih update + link
-    // Github orang (ChatBot-All), tidak berlaku untuk XDots.
+    // Github orang (ChatBot-All), tidak berlaku untuk Ministral.
   }
 
   @override

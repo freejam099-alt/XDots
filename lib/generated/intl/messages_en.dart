@@ -37,7 +37,7 @@ class MessageLookup extends MessageLookupByLibrary {
             MessageLookupByLibrary.simpleMessage("Alias(required)"),
         "apikey_repeat":
             MessageLookupByLibrary.simpleMessage("API Key cannot be repeated"),
-        "app_name": MessageLookupByLibrary.simpleMessage("XDots"),
+        "app_name": MessageLookupByLibrary.simpleMessage("Ministral"),
         "appearance": MessageLookupByLibrary.simpleMessage("Appearance"),
         "author": MessageLookupByLibrary.simpleMessage("Author"),
         "auto_title":
