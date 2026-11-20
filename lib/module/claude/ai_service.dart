@@ -59,7 +59,20 @@ class MuseAi {
   MuseAi._();
 
   static final RegExp _toolRe =
-      RegExp(r'^\[\[tool:([a-z_]+)(?:\|([^\]]*))?\]\]$');
+      RegExp(r'^\[\[tool:([a-z0-9_]+)(?:\|([^\]]*))?\]\]$');
+
+  /// Nama tool yang diiklankan server MCP kustom (diisi lewat [refreshCustomTools]).
+  static final Set<String> _knownCustomTools = <String>{};
+
+  /// Cache tool per endpoint agar tidak `tools/list` tiap kali chat jalan.
+  static final Map<String, List<McpToolInfo>> _customToolsByEndpoint =
+      <String, List<McpToolInfo>>{};
+  static DateTime? _lastCustomToolFetch;
+
+  static List<String> get customToolNames =>
+      List<String>.of(_knownCustomTools)..sort();
+
+  static bool isCustomTool(String name) => _knownCustomTools.contains(name);
 
   // -- Pemilihan server/model ----------------------------------------------
 
@@ -201,6 +214,13 @@ class MuseAi {
         '[[tool:web_fetch_exa|https://alamat.lengkap]]');
     b.writeln('- tools_use [${_state('tools_use')}]: melihat daftar tool '
         'yang tersedia beserta statusnya. Format: [[tool:tools_use]]');
+    if (_knownCustomTools.isNotEmpty) {
+      b.writeln();
+      b.writeln('TOOL DARI SERVER MCP KUSTOM YANG AKTIF:');
+      for (final String name in customToolNames) {
+        b.writeln('- $name [AKTIF]: [[tool:$name|argumen]]');
+      }
+    }
     b.writeln();
     b.writeln(
         'GALERI: bila hasil dot_search menyebut galeri gambar, gambar tampil '
@@ -639,6 +659,16 @@ class MuseAi {
 
   // -- Penanda tool ------------------------------------------------------------
 
+  static const Set<String> _builtInTools = <String>{
+    'create_image',
+    'create_video',
+    'dot_search',
+    'dot_read',
+    'web_search_exa',
+    'web_fetch_exa',
+    'tools_use'
+  };
+
   static MuseToolCall? parseTool(String text) {
     final String trimmed = text.trimRight();
     final int lineStart = trimmed.lastIndexOf('\n') + 1;
@@ -646,16 +676,11 @@ class MuseAi {
     final RegExpMatch? m = _toolRe.firstMatch(marker);
     if (m == null) return null;
     final String name = m.group(1) ?? '';
-    const Set<String> validTools = <String>{
-      'create_image',
-      'create_video',
-      'dot_search',
-      'dot_read',
-      'web_search_exa',
-      'web_fetch_exa',
-      'tools_use'
-    };
-    if (!validTools.contains(name)) return null;
+    // Tool bawaan + tool yang benar-benar diiklankan server MCP kustom.
+    // Nama asing tetap ditolak supaya model tidak mengarang tool.
+    if (!_builtInTools.contains(name) && !_knownCustomTools.contains(name)) {
+      return null;
+    }
     if (_insideMarkdownFence(trimmed, lineStart)) return null;
     String arg = (m.group(2) ?? '').trim();
     String ratio = '';
@@ -675,21 +700,27 @@ class MuseAi {
   /// Hapus penanda tool (lengkap maupun yang baru setengah tertulis
   /// saat streaming) dari teks yang ditampilkan.
   static String stripToolMarkers(String s) {
-    final String out = s.trimRight();
-    final int lineStart = out.lastIndexOf('\n') + 1;
-    if (parseTool(out) != null) return out.substring(0, lineStart).trimRight();
-
-    final int open = out.lastIndexOf('[[');
-    final int partialStart =
-        out.endsWith('[') && !out.endsWith('[[') ? out.length - 1 : open;
-    if (partialStart >= 0 &&
-        !out.substring(partialStart).contains('\n') &&
-        out.substring(lineStart, partialStart).trim().isEmpty &&
-        !_insideMarkdownFence(out, lineStart) &&
-        _isPartialToolMarker(out.substring(partialStart))) {
-      return out.substring(0, partialStart).trimRight();
+    final List<String> lines = s.trimRight().split('\n');
+    final List<String> kept = <String>[];
+    bool fence = false;
+    for (final String line in lines) {
+      final String prefix = line.trimLeft();
+      if (prefix.startsWith('```') || prefix.startsWith('~~~')) {
+        fence = !fence;
+        kept.add(line);
+        continue;
+      }
+      final String marker = line.trim();
+      // Penanda berdiri sendiri (lengkap maupun setengah tertulis saat
+      // streaming) tidak boleh tampil sebagai teks biasa, di posisi mana pun.
+      if (!fence &&
+          (_toolRe.firstMatch(marker) != null ||
+              _isPartialToolMarker(marker))) {
+        continue;
+      }
+      kept.add(line);
     }
-    return out;
+    return kept.join('\n').trimRight();
   }
 
   static bool _insideMarkdownFence(String text, int end) {
@@ -725,7 +756,133 @@ class MuseAi {
     b.writeln('- web_search_exa [${_exaState()}]: cari di web (MCP Exa)');
     b.writeln('- web_fetch_exa [${_exaState()}]: baca isi URL (MCP Exa)');
     b.writeln('- tools_use [${_state('tools_use')}]: daftar tool ini');
+    for (final String name in customToolNames) {
+      b.writeln('- $name [AKTIF]: tool MCP kustom');
+    }
     return b.toString().trim();
+  }
+
+  // -- MCP kustom (Streamable HTTP) --------------------------------------------
+
+  static final Map<String, McpClient> _customClients = <String, McpClient>{};
+  static McpClient _clientFor(String url) =>
+      _customClients.putIfAbsent(url, () => McpClient(url));
+
+  /// Entri MCP kustom boleh berupa URL saja atau "label|URL".
+  static MapEntry<String, String>? _customEndpoint(String raw) {
+    final String v = raw.trim();
+    if (v.isEmpty) return null;
+    final int bar = v.indexOf('|');
+    final String label = bar > 0 ? v.substring(0, bar).trim() : '';
+    final String url = (bar > 0 ? v.substring(bar + 1) : v).trim();
+    if (!url.startsWith('http://') && !url.startsWith('https://')) return null;
+    return MapEntry<String, String>(label.isEmpty ? url : label, url);
+  }
+
+  static Iterable<MapEntry<String, String>> get _enabledCustomEndpoints sync* {
+    for (final String id in ModelStore.customMcp()) {
+      if (!ModelStore.mcpEnabled(id, defValue: false)) continue;
+      final MapEntry<String, String>? ep = _customEndpoint(id);
+      if (ep != null) yield ep;
+    }
+  }
+
+  /// Tanya `tools/list` ke tiap server MCP kustom yang aktif.
+  /// Dipanggil sebelum AI dijalankan supaya model tahu tool apa saja yang boleh
+  /// dipakai. Server mati diabaikan (chat tetap jalan).
+  static Future<void> refreshCustomTools({bool force = false}) async {
+    final DateTime now = DateTime.now();
+    if (!force &&
+        _lastCustomToolFetch != null &&
+        now.difference(_lastCustomToolFetch!).inSeconds < 60) {
+      return;
+    }
+    _lastCustomToolFetch = now;
+    final Set<String> names = <String>{};
+    for (final MapEntry<String, String> ep in _enabledCustomEndpoints) {
+      try {
+        // Discovery pakai timeout pendek: server mati tidak boleh menahan chat.
+        final List<McpToolInfo> tools = await McpClient(
+          ep.value,
+          dio: Dio(BaseOptions(
+            connectTimeout: const Duration(seconds: 5),
+            receiveTimeout: const Duration(seconds: 10),
+            responseType: ResponseType.plain,
+            validateStatus: (int? s) => s != null && s < 500,
+          )),
+        ).listTools();
+        _customToolsByEndpoint[ep.value] = tools;
+        for (final McpToolInfo tool in tools) {
+          names.add(tool.name);
+        }
+      } catch (_) {
+        _customToolsByEndpoint.remove(ep.value);
+      }
+    }
+    _knownCustomTools
+      ..clear()
+      ..addAll(names);
+  }
+
+  static void invalidateCustomTools() {
+    _lastCustomToolFetch = null;
+    _customToolsByEndpoint.clear();
+    _knownCustomTools.clear();
+    _customClients.clear();
+  }
+
+  /// Jalankan tool kustom berdasarkan nama yang diiklankan server.
+  static Future<String> callCustomTool(String name, String arg) async {
+    for (final MapEntry<String, String> ep in _enabledCustomEndpoints) {
+      final List<McpToolInfo> tools =
+          _customToolsByEndpoint[ep.value] ?? const <McpToolInfo>[];
+      final McpToolInfo? tool = _findTool(tools, name);
+      if (tool == null) continue;
+      return _clientFor(ep.value).callTool(name, _toolArguments(tool, arg));
+    }
+    // Cache bisa kosong bila refresh belum sempat jalan: coba sekali lagi.
+    await refreshCustomTools(force: true);
+    for (final MapEntry<String, String> ep in _enabledCustomEndpoints) {
+      final McpToolInfo? tool =
+          _findTool(_customToolsByEndpoint[ep.value] ?? const <McpToolInfo>[], name);
+      if (tool == null) continue;
+      return _clientFor(ep.value).callTool(name, _toolArguments(tool, arg));
+    }
+    throw MuseAiException('Tool MCP "$name" tidak ditemukan di server aktif.');
+  }
+
+  static McpToolInfo? _findTool(List<McpToolInfo> tools, String name) {
+    for (final McpToolInfo t in tools) {
+      if (t.name == name) return t;
+    }
+    return null;
+  }
+
+  /// Petakan argumen bebas dari penanda `[[tool:...|arg]]` ke skema tool.
+  static Map<String, dynamic> _toolArguments(McpToolInfo tool, String arg) {
+    final String value = arg.trim();
+    final List<String> props = tool.textProperties;
+    if (props.isEmpty) return <String, dynamic>{'input': value};
+    const List<String> preferred = <String>[
+      'query',
+      'input',
+      'text',
+      'content',
+      'path',
+      'url',
+      'name',
+      'command',
+      'id'
+    ];
+    for (final String key in preferred) {
+      if (props.contains(key)) return <String, dynamic>{key: value};
+    }
+    final List<String> parts = value.split('|');
+    final Map<String, dynamic> out = <String, dynamic>{};
+    for (int i = 0; i < props.length; i++) {
+      out[props[i]] = i < parts.length ? parts[i].trim() : '';
+    }
+    return out;
   }
 
   // -- MCP Exa -----------------------------------------------------------------

@@ -37,10 +37,9 @@ class FloatingNavLayout extends StatelessWidget {
       resizeToAvoidBottomInset: false,
       body: DecoratedBox(
         key: const ValueKey('floating-tabs-background'),
-        decoration: BoxDecoration(
-          color: colors.bgBase,
-          gradient: colors.bgGradientBottom,
-        ),
+        // Latar polos: gradient biru di bawah navbar membuat area navigasi
+        // terlihat terpisah dan system nav bar tampak hitam.
+        decoration: BoxDecoration(color: colors.bgBase),
         child: Stack(
           children: [
             Positioned(

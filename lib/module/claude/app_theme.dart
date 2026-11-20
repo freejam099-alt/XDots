@@ -427,11 +427,16 @@ class AppDims {
 /// Status bar mengikuti tema (gelap -> ikon terang, terang -> ikon gelap).
 void applySystemUi(BuildContext context) {
   final AppColors c = AppColors.of(context);
+  final bool dark = c.brightness == Brightness.dark;
   SystemChrome.setSystemUIOverlayStyle(
-    c.brightness == Brightness.dark
-        ? SystemUiOverlayStyle.light
-            .copyWith(statusBarColor: Colors.transparent)
-        : SystemUiOverlayStyle.dark
-            .copyWith(statusBarColor: Colors.transparent),
+    (dark ? SystemUiOverlayStyle.light : SystemUiOverlayStyle.dark).copyWith(
+      statusBarColor: Colors.transparent,
+      // Android system navigation bar ikut warna aplikasi, bukan hitam.
+      systemNavigationBarColor: c.bgBase,
+      systemNavigationBarDividerColor: Colors.transparent,
+      systemNavigationBarIconBrightness:
+          dark ? Brightness.light : Brightness.dark,
+      systemNavigationBarContrastEnforced: false,
+    ),
   );
 }

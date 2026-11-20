@@ -92,7 +92,8 @@ void main() {
             find.byKey(const ValueKey('floating-tabs-background')));
         final decoration = background.decoration as BoxDecoration;
         expect(decoration.color, colors.bgBase);
-        expect(decoration.gradient, colors.bgGradientBottom);
+        // Tidak ada gradient biru di belakang navbar.
+        expect(decoration.gradient, isNull);
         final nav =
             tester.getRect(find.byKey(const ValueKey('floating-nav-surface')));
         expect(nav.bottom, 390 - 20 - AppDims.pillBottomGap);

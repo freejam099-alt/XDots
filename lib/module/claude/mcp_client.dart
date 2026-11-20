@@ -9,8 +9,49 @@ class McpException implements Exception {
   String toString() => message;
 }
 
+/// Satu tool yang diiklankan server lewat `tools/list`.
+class McpToolInfo {
+  final String name;
+  final String? description;
+  final Map<String, dynamic> inputSchema;
+
+  const McpToolInfo({
+    required this.name,
+    this.description,
+    this.inputSchema = const <String, dynamic>{},
+  });
+
+  factory McpToolInfo.fromJson(Map<String, dynamic> json) {
+    final dynamic schema = json['inputSchema'];
+    return McpToolInfo(
+      name: json['name'] as String,
+      description: json['description'] as String?,
+      inputSchema: schema is Map
+          ? Map<String, dynamic>.from(schema)
+          : <String, dynamic>{},
+    );
+  }
+
+  /// Nama properti teks yang disarankan skema tool.
+  List<String> get textProperties {
+    final dynamic props = inputSchema['properties'];
+    if (props is! Map) return const <String>[];
+    final List<String> out = <String>[];
+    props.forEach((dynamic key, dynamic value) {
+      final Map<String, dynamic>? def = value is Map
+          ? Map<String, dynamic>.from(value)
+          : null;
+      final String type = (def?['type'] ?? 'string').toString();
+      if (type == 'string' || def == null || def['type'] == null) {
+        out.add(key.toString());
+      }
+    });
+    return out;
+  }
+}
+
 /// Klien MCP minimal (Streamable HTTP, JSON-RPC 2.0).
-/// Dipakai untuk server MCP Exa: https://mcp.exa.ai/mcp
+/// Dipakai untuk Exa dan server MCP kustom apa pun yang punya endpoint HTTP.
 class McpClient {
   final String url;
   final Dio _client;
@@ -107,6 +148,20 @@ class McpClient {
     }
     await _rpc('notifications/initialized', null, notify: true);
     _ready = true;
+  }
+
+  /// Daftar tool yang tersedia di server ini (JSON-RPC `tools/list`).
+  Future<List<McpToolInfo>> listTools() async {
+    await _init();
+    final dynamic r = await _rpc('tools/list', const <String, dynamic>{});
+    if (r is! Map || r['tools'] is! List) return const <McpToolInfo>[];
+    final List<McpToolInfo> out = <McpToolInfo>[];
+    for (final dynamic t in r['tools'] as List) {
+      if (t is Map && t['name'] is String) {
+        out.add(McpToolInfo.fromJson(Map<String, dynamic>.from(t)));
+      }
+    }
+    return out;
   }
 
   /// Panggil tool MCP; mengembalikan gabungan teks hasilnya.

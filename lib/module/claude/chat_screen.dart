@@ -741,6 +741,11 @@ class _ClaudeChatScreenState extends State<ClaudeChatScreen> {
       _lastFailureActivity = null;
     }
     setState(() => _aiBusy = true);
+    // Beri tahu model tool MCP kustom apa yang benar-benar bisa dipanggil
+    // sebelum system prompt disusun. Gagal refresh tidak boleh menggagalkan chat.
+    try {
+      await MuseAi.refreshCustomTools();
+    } catch (_) {}
     String full = '';
     try {
       _runModel = MuseAi.resolve()?.displayName;
@@ -780,11 +785,13 @@ class _ClaudeChatScreenState extends State<ClaudeChatScreen> {
     final String n = call.name;
     final bool exa = n == 'web_search_exa' || n == 'web_fetch_exa';
     final bool dot = n == 'dot_search' || n == 'dot_read';
+    final bool custom = MuseAi.isCustomTool(n);
     final bool known = exa ||
         dot ||
         n == 'create_image' ||
         n == 'create_video' ||
-        n == 'tools_use';
+        n == 'tools_use' ||
+        custom;
     bool continueAi = true;
     if (!known) {
       _noteTool(n, null, 'Tool tidak dikenal atau belum tersedia.',
@@ -813,7 +820,11 @@ class _ClaudeChatScreenState extends State<ClaudeChatScreen> {
           await _toolDot(n, call.arg, id, topic: call.ratio);
           break;
         default:
-          await _toolExa(n, call.arg, id);
+          if (custom) {
+            await _toolCustom(n, call.arg, id);
+          } else {
+            await _toolExa(n, call.arg, id);
+          }
       }
     }
     if (!mounted || id != _runId) return;
@@ -880,6 +891,23 @@ class _ClaudeChatScreenState extends State<ClaudeChatScreen> {
             ? List<String>.of(DotBrowser.lastImages)
             : <String>[];
       }
+    } catch (e) {
+      if (!_activeRun(id)) return;
+      _lastFailureActivity = activityForFailure(e);
+      failed = true;
+      result = 'Gagal memanggil $name: ${MuseAi.friendlyError(e)}';
+    }
+    if (!_activeRun(id)) return;
+    _finishToolWithResult(name, result, failed: failed);
+  }
+
+  /// Tool dari server MCP kustom (tool ditemukan lewat tools/list).
+  Future<void> _toolCustom(String name, String arg, int id) async {
+    _toolCall(name, arg);
+    String result;
+    bool failed = false;
+    try {
+      result = await MuseAi.callCustomTool(name, arg);
     } catch (e) {
       if (!_activeRun(id)) return;
       _lastFailureActivity = activityForFailure(e);
@@ -1364,7 +1392,8 @@ class _ClaudeChatScreenState extends State<ClaudeChatScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
-                CleverMessage(text: m.text),
+                // Bersihkan penanda tool yang mungkin tersimpan di riwayat lama.
+                CleverMessage(text: MuseAi.stripToolMarkers(m.text)),
                 if (m.text.startsWith('⚠️'))
                   TextButton.icon(
                     onPressed: _aiBusy ? null : () => _runAi(),
