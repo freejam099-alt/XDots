@@ -8,6 +8,7 @@ import 'app_theme.dart';
 import 'chat_data.dart';
 import 'model_store.dart';
 import '../setting/openai/openai_list_page.dart';
+import 'widgets/add_custom_mcp_row.dart';
 import 'widgets/provider_rows.dart';
 import 'widgets/dynamic_gradient_loader.dart';
 import 'widgets/vector_icons.dart';
@@ -24,14 +25,14 @@ class ServerPanel extends StatefulWidget {
 
 class _ServerPanelState extends State<ServerPanel> {
   final TextEditingController _manualController = TextEditingController();
-  final TextEditingController _mcpController = TextEditingController();
   final List<_FetchedModel> _models = [];
   bool _fetching = false;
+
+  void _refresh() => setState(() {});
 
   @override
   void dispose() {
     _manualController.dispose();
-    _mcpController.dispose();
     super.dispose();
   }
 
@@ -75,12 +76,6 @@ class _ServerPanelState extends State<ServerPanel> {
   void _plus(_FetchedModel m) {
     ModelStore.addManualModel(m.id);
     'Ditambahkan: ${m.id}'.success();
-  }
-
-  void _addMcp() {
-    ModelStore.addCustomMcp(_mcpController.text);
-    _mcpController.clear();
-    setState(() {});
   }
 
   @override
@@ -147,48 +142,7 @@ class _ServerPanelState extends State<ServerPanel> {
               McpServiceRow(label: m.label, id: m.id),
             for (final String id in ModelStore.customMcp())
               McpServiceRow(label: id, id: id, custom: true),
-            Row(
-              children: [
-                Expanded(
-                  child: Container(
-                    height: 48,
-                    padding: const EdgeInsets.symmetric(horizontal: 14),
-                    decoration: BoxDecoration(
-                      color: c.surface,
-                      borderRadius: BorderRadius.circular(999),
-                      boxShadow: [c.shadowFloat],
-                    ),
-                    child: Center(
-                      child: TextField(
-                        controller: _mcpController,
-                        style: TextStyle(fontSize: 15, color: c.textPrimary),
-                        decoration: InputDecoration(
-                          hintText: 'Endpoint MCP manual',
-                          hintStyle: TextStyle(fontSize: 15, color: c.textHint),
-                          border: InputBorder.none,
-                          isDense: true,
-                          contentPadding: EdgeInsets.zero,
-                        ),
-                        onSubmitted: (_) => _addMcp(),
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                GestureDetector(
-                  onTap: _addMcp,
-                  child: Container(
-                    width: 48,
-                    height: 48,
-                    decoration: BoxDecoration(
-                      color: c.accent,
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(Icons.add, color: Colors.white),
-                  ),
-                ),
-              ],
-            ),
+            AddCustomMcpRow(onAdded: _refresh),
           ],
         ),
       ),
@@ -312,7 +266,7 @@ class _ManualRow extends StatelessWidget {
               color: c.btnSecondary,
               shape: BoxShape.circle,
             ),
-            child: Icon(Icons.add, color: c.textPrimary),
+            child: AppIcons.plus(size: 24, color: c.textPrimary),
           ),
         ),
       ],
@@ -368,7 +322,7 @@ class _ModelRow extends StatelessWidget {
                 color: c.btnSecondary,
                 shape: BoxShape.circle,
               ),
-              child: Icon(Icons.add, color: c.textPrimary),
+              child: AppIcons.plus(size: 24, color: c.textPrimary),
             ),
           ),
         ],

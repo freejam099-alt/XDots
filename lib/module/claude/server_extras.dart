@@ -10,6 +10,7 @@ import 'app_theme.dart';
 import 'chat_data.dart';
 import 'dot_browser.dart';
 import 'model_store.dart';
+import 'widgets/add_custom_mcp_row.dart';
 import 'widgets/vector_icons.dart';
 
 /// Fitur tambahan di bawah daftar provider tab Server:
@@ -23,6 +24,8 @@ class ServerExtras extends StatefulWidget {
 }
 
 class _ServerExtrasState extends State<ServerExtras> {
+  void _refresh() => setState(() {});
+
   Widget _card(AppColors c, String title, String subtitle, Widget child) {
     return Container(
       width: double.infinity,
@@ -85,7 +88,7 @@ class _ServerExtrasState extends State<ServerExtras> {
                   ),
                 for (final String id in ModelStore.customMcp())
                   _McpToggleRow(label: id, id: id, custom: true),
-                _AddCustomMcpRow(onAdded: () => setState(() {})),
+                AddCustomMcpRow(onAdded: _refresh),
               ],
             ),
           ),
@@ -328,76 +331,6 @@ class _McpToggleRowState extends State<_McpToggleRow> {
         ],
       ),
     );
-  }
-}
-
-class _AddCustomMcpRow extends StatefulWidget {
-  final VoidCallback onAdded;
-  const _AddCustomMcpRow({required this.onAdded});
-
-  @override
-  State<_AddCustomMcpRow> createState() => _AddCustomMcpRowState();
-}
-
-class _AddCustomMcpRowState extends State<_AddCustomMcpRow> {
-  final TextEditingController _controller = TextEditingController();
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final AppColors c = AppColors.of(context);
-    return Row(
-      children: [
-        Expanded(
-          child: Container(
-            height: 48,
-            padding: const EdgeInsets.symmetric(horizontal: 14),
-            decoration: BoxDecoration(
-              color: c.surfaceSoft,
-              borderRadius: BorderRadius.circular(999),
-            ),
-            child: Center(
-              child: TextField(
-                controller: _controller,
-                style: TextStyle(fontSize: 15, color: c.textPrimary),
-                decoration: InputDecoration(
-                  hintText: 'Endpoint MCP manual',
-                  hintStyle: TextStyle(fontSize: 15, color: c.textHint),
-                  border: InputBorder.none,
-                  isDense: true,
-                  contentPadding: EdgeInsets.zero,
-                ),
-                onSubmitted: (_) => _add(),
-              ),
-            ),
-          ),
-        ),
-        const SizedBox(width: 8),
-        GestureDetector(
-          onTap: _add,
-          child: Container(
-            width: 48,
-            height: 48,
-            decoration: BoxDecoration(
-              color: c.accent,
-              shape: BoxShape.circle,
-            ),
-            child: const Icon(Icons.add, color: Colors.white),
-          ),
-        ),
-      ],
-    );
-  }
-
-  void _add() {
-    ModelStore.addCustomMcp(_controller.text);
-    _controller.clear();
-    widget.onAdded();
   }
 }
 

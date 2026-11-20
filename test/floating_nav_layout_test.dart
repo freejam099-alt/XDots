@@ -116,13 +116,21 @@ void main() {
       expect(tester.takeException(), isNull);
     });
 
-    testWidgets('keyboard hides navbar and reserves visible content ($mode)',
+    testWidgets(
+        'keyboard keeps navbar fixed and reserves visible content ($mode)',
         (tester) async {
       await tester.pumpWidget(_shell(colors: colors, keyboard: 260));
       await tester.pumpAndSettle();
-      expect(find.byType(FloatingPillNavbar), findsNothing);
+      // Navbar tidak ikut naik: posisinya tetap di dasar layar.
+      final double screenHeight =
+          tester.view.physicalSize.height / tester.view.devicePixelRatio;
+      final nav =
+          tester.getRect(find.byKey(const ValueKey('floating-nav-surface')));
+      expect(find.byType(FloatingPillNavbar), findsOneWidget);
+      expect(nav.bottom, screenHeight - 20 - AppDims.pillBottomGap);
+      // Hanya konten yang naik setinggi keyboard.
       expect(tester.getRect(find.byType(IndexedStack)).bottom,
-          tester.view.physicalSize.height / tester.view.devicePixelRatio - 260);
+          screenHeight - 260);
       expect(tester.takeException(), isNull);
     });
   }

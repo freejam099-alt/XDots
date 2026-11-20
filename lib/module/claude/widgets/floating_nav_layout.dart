@@ -77,18 +77,22 @@ class FloatingNavLayout extends StatelessWidget {
                 ),
               ),
             ),
+            // Navbar tetap di dasar layar meski keyboard terbuka.
+            // Yang naik mengikuti keyboard adalah konten/input bar
+            // (lewat contentBottom), bukan navbar. Menyembunyikan navbar
+            // saat keyboard muncul membuatnya seolah "ikut naik" saat
+            // keyboard tertutup, dan merusak desain "navbar tetap".
             // No full-width Material or opaque strip behind the pill.
-            if (keyboard == 0)
-              Positioned(
-                left: safe.left,
-                right: safe.right,
-                bottom: navBottom,
-                child: FloatingPillNavbar(
-                  icons: icons,
-                  currentIndex: currentIndex,
-                  onTap: onTap,
-                ),
+            Positioned(
+              left: safe.left,
+              right: safe.right,
+              bottom: navBottom,
+              child: FloatingPillNavbar(
+                icons: icons,
+                currentIndex: currentIndex,
+                onTap: onTap,
               ),
+            ),
           ],
         ),
       ),

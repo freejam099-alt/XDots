@@ -42,14 +42,37 @@ String _domainOf(String url) {
 /// "UI Clever": memecah teks AI menjadi blok cerdas dan interaktif —
 /// teks (markdown), kartu link, gambar (tap untuk pratinjau),
 /// video (tap untuk buka), dan grid otomatis untuk gambar berurutan.
-class CleverMessage extends StatelessWidget {
+class CleverMessage extends StatefulWidget {
   final String text;
 
   const CleverMessage({super.key, required this.text});
 
   @override
+  State<CleverMessage> createState() => _CleverMessageState();
+}
+
+class _CleverMessageState extends State<CleverMessage> {
+  late List<_Block> _blocks;
+
+  @override
+  void initState() {
+    super.initState();
+    _blocks = _parse(widget.text);
+  }
+
+  @override
+  void didUpdateWidget(covariant CleverMessage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Regex + URI parsing mahal. Lakukan hanya saat teks benar-benar
+    // berubah, bukan pada setiap rebuild layar chat.
+    if (oldWidget.text != widget.text) {
+      _blocks = _parse(widget.text);
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final List<_Block> blocks = _parse(text);
+    final List<_Block> blocks = _blocks;
     if (blocks.length == 1 && blocks.first is _TextBlock) {
       return MarkdownBubble(text: (blocks.first as _TextBlock).text);
     }

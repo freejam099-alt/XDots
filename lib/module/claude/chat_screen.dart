@@ -991,7 +991,9 @@ class _ClaudeChatScreenState extends State<ClaudeChatScreen> {
                         children: [
                           // List memanjang sampai dasar area: teks terlihat
                           // di sela/bawah input bar (input tetap solid).
-                          Positioned.fill(child: _buildList()),
+                          Positioned.fill(
+                            child: _buildList(keyboardOpen: kbOpen),
+                          ),
                           if (!widget.hideInputBar)
                             Positioned(
                               left: 0,
@@ -1083,14 +1085,18 @@ class _ClaudeChatScreenState extends State<ClaudeChatScreen> {
     return const SizedBox.shrink();
   }
 
-  Widget _buildList() {
+  Widget _buildList({required bool keyboardOpen}) {
     // SliverAnimatedList selalu mounted (tidak di-swap) agar GlobalKey,
     // ScrollController, dan animasi remove tetap valid; empty state
     // hanya overlay di atasnya.
     final bool empty = _messages.isEmpty && !_streaming && !_aiBusy;
+    // Harus memakai status keyboard yang sama dengan posisi input bar
+    // di build(). Memakai widget.keyboardOpen saja membuat padding bawah
+    // tetap memakai jarak navbar saat keyboard terbuka via viewInsets,
+    // sehingga teks tertutup input bar.
     final double bottomPad = (widget.hideInputBar
             ? 0.0
-            : _inputH + (widget.keyboardOpen ? 8.0 : AppDims.inputGapToNav)) +
+            : _inputH + (keyboardOpen ? 8.0 : AppDims.inputGapToNav)) +
         12.0;
     return Stack(
       children: [
@@ -1104,9 +1110,13 @@ class _ClaudeChatScreenState extends State<ClaudeChatScreen> {
                 if (i >= _messages.length) {
                   return const SizedBox.shrink();
                 }
-                return _transition(
-                  animation,
-                  child: _spaced(i, _bubbleFor(_messages[i], i)),
+                // Isolasi repaint tiap bubble: scroll/animasi satu pesan
+                // tidak menggambar ulang seluruh daftar chat.
+                return RepaintBoundary(
+                  child: _transition(
+                    animation,
+                    child: _spaced(i, _bubbleFor(_messages[i], i)),
+                  ),
                 );
               },
             ),

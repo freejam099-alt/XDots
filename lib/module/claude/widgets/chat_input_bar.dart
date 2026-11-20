@@ -120,12 +120,17 @@ class _ChatInputBarState extends State<ChatInputBar> {
   bool _speechReady = false;
   bool _listening = false;
   double _level = 0;
+
+  /// Level suara berubah puluhan kali per detik. Notifier ini dipakai
+  /// supaya hanya pulsa mikrofon yang dibangun ulang, bukan seluruh input bar.
+  final ValueNotifier<double> _levelNotifier = ValueNotifier<double>(0);
   String _voiceBase = '';
   String? _voiceLocale;
 
   Future<void> _toggleVoice() async {
     if (_listening) {
       await _speech.stop();
+      _resetLevel();
       if (mounted) setState(() => _listening = false);
       return;
     }
@@ -136,18 +141,14 @@ class _ChatInputBarState extends State<ChatInputBar> {
             if ((st == 'done' || st == 'notListening') &&
                 mounted &&
                 _listening) {
-              setState(() {
-                _listening = false;
-                _level = 0;
-              });
+              _resetLevel();
+              setState(() => _listening = false);
             }
           },
           onError: (dynamic e) {
             if (!mounted) return;
-            setState(() {
-              _listening = false;
-              _level = 0;
-            });
+            _resetLevel();
+            setState(() => _listening = false);
           },
         );
         if (!mounted) {
@@ -173,9 +174,13 @@ class _ChatInputBarState extends State<ChatInputBar> {
         onResult: (dynamic r) {
           if (!mounted) return;
           final String words = (r.recognizedWords as String?) ?? '';
-          widget.controller.text = '$_voiceBase$sep$words';
+          final String next = '$_voiceBase$sep$words';
+          // Partial result bisa datang bertubi-tubi dengan teks yang sama.
+          // Menulis controller memicu listener _onText -> rebuild seluruh bar.
+          if (widget.controller.text == next) return;
+          widget.controller.text = next;
           widget.controller.selection =
-              TextSelection.collapsed(offset: widget.controller.text.length);
+              TextSelection.collapsed(offset: next.length);
         },
         localeId: _voiceLocale,
         listenFor: const Duration(minutes: 2),
@@ -183,11 +188,17 @@ class _ChatInputBarState extends State<ChatInputBar> {
         partialResults: true,
         onSoundLevelChange: (double l) {
           if (!mounted || !_listening) return;
-          setState(() => _level = ((l + 2) / 12).clamp(0.0, 1.0).toDouble());
+          final double next = ((l + 2) / 12).clamp(0.0, 1.0).toDouble();
+          // Level suara masuk puluhan kali/detik. Tanpa ambang batas ini
+          // seluruh input bar ikut rebuild dan chat terasa patah-patah.
+          if ((next - _level).abs() < 0.04) return;
+          _level = next;
+          _levelNotifier.value = next;
         },
         listenMode: stt.ListenMode.dictation,
       );
     } catch (_) {
+      _resetLevel();
       if (mounted) setState(() => _listening = false);
       'Tidak dapat memulai input suara'.toast();
     }
@@ -196,10 +207,17 @@ class _ChatInputBarState extends State<ChatInputBar> {
   void _submitText(String v) {
     if (_listening) {
       _speech.cancel();
-      _listening = false;
-      _level = 0;
+      _resetLevel();
+      // setState diperlukan agar ikon kembali ke mikrofon (sebelumnya
+      // _listening berubah tanpa rebuild sehingga UI masih menampilkan stop).
+      if (mounted) setState(() => _listening = false);
     }
     widget.onSubmitted(v);
+  }
+
+  void _resetLevel() {
+    _level = 0;
+    _levelNotifier.value = 0;
   }
 
   Widget _micButton(AppColors c) {
@@ -215,13 +233,16 @@ class _ChatInputBarState extends State<ChatInputBar> {
           clipBehavior: Clip.none,
           children: [
             if (_listening)
-              AnimatedContainer(
-                duration: AppDims.animFast,
-                width: 34 + _level * 22,
-                height: 34 + _level * 22,
-                decoration: BoxDecoration(
-                  color: c.accent.withOpacity(0.18),
-                  shape: BoxShape.circle,
+              ValueListenableBuilder<double>(
+                valueListenable: _levelNotifier,
+                builder: (context, level, _) => AnimatedContainer(
+                  duration: AppDims.animFast,
+                  width: 34 + level * 22,
+                  height: 34 + level * 22,
+                  decoration: BoxDecoration(
+                    color: c.accent.withOpacity(0.18),
+                    shape: BoxShape.circle,
+                  ),
                 ),
               ),
             AnimatedContainer(
@@ -289,6 +310,7 @@ class _ChatInputBarState extends State<ChatInputBar> {
     _speech.cancel();
     widget.controller.removeListener(_onText);
     _inputCtrl?.attachments.removeListener(_onText);
+    _levelNotifier.dispose();
     super.dispose();
   }
 

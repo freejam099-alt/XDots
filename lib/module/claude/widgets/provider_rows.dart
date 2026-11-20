@@ -158,7 +158,9 @@ class _McpServiceRowState extends State<McpServiceRow> {
               ),
             ),
           Switch.adaptive(
-            value: ModelStore.mcpEnabled(widget.id),
+            // Sama dengan ServerExtras & AiService: Exa aktif by default.
+            value: ModelStore.mcpEnabled(widget.id,
+                defValue: widget.id == 'exa'),
             activeColor: c.accent,
             onChanged: (v) {
               ModelStore.setMcpEnabled(widget.id, v);

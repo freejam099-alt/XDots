@@ -76,7 +76,7 @@ jobs:
       - name: Pub get
         run: flutter pub get
 
-      - name: Configure signing and build mode
+      - name: Configure release signing
         id: signing
         env:
           KEYSTORE_BASE64: ${{ secrets.XDOTS_KEYSTORE_BASE64 }}
@@ -84,24 +84,36 @@ jobs:
           XDOTS_KEY_ALIAS: ${{ secrets.XDOTS_KEY_ALIAS }}
           XDOTS_KEY_PASSWORD: ${{ secrets.XDOTS_KEY_PASSWORD }}
         run: |
+          umask 077
           if [ -n "$KEYSTORE_BASE64" ] && [ -n "$XDOTS_STORE_PASSWORD" ] && [ -n "$XDOTS_KEY_ALIAS" ] && [ -n "$XDOTS_KEY_PASSWORD" ]; then
-            umask 077
             printf '%s' "$KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/xdots-release.jks"
             echo "XDOTS_KEYSTORE_PATH=$RUNNER_TEMP/xdots-release.jks" >> "$GITHUB_ENV"
-            echo "mode=release" >> "$GITHUB_OUTPUT"
+            echo "XDOTS_STORE_PASSWORD=$XDOTS_STORE_PASSWORD" >> "$GITHUB_ENV"
+            echo "XDOTS_KEY_ALIAS=$XDOTS_KEY_ALIAS" >> "$GITHUB_ENV"
+            echo "XDOTS_KEY_PASSWORD=$XDOTS_KEY_PASSWORD" >> "$GITHUB_ENV"
+            echo "::notice::Using configured release keystore secrets."
           else
-            echo "mode=debug" >> "$GITHUB_OUTPUT"
-            echo "::notice::Release signing is not configured; building a debug-signed preview, not a production release."
+            # Release MUST NOT fall back to a debug build. When no signing
+            # secret is configured, generate a throwaway self-signed key so
+            # the CI still produces a real (unsigned-for-store) release APK.
+            keytool -genkeypair -v \
+              -keystore "$RUNNER_TEMP/xdots-release.jks" \
+              -keyalg RSA -keysize 2048 -validity 3650 \
+              -alias xdots-release \
+              -storepass 'XdotsCiRelease2026!' -keypass 'XdotsCiRelease2026!' \
+              -dname "CN=XDots CI Release, OU=CI, O=XDots, L=NA, S=NA, C=ID" >/dev/null 2>&1
+            echo "XDOTS_KEYSTORE_PATH=$RUNNER_TEMP/xdots-release.jks" >> "$GITHUB_ENV"
+            echo "XDOTS_STORE_PASSWORD=XdotsCiRelease2026!" >> "$GITHUB_ENV"
+            echo "XDOTS_KEY_ALIAS=xdots-release" >> "$GITHUB_ENV"
+            echo "XDOTS_KEY_PASSWORD=XdotsCiRelease2026!" >> "$GITHUB_ENV"
+            echo "::notice::No signing secrets set; generated a temporary self-signed release key for this CI run. Do not publish this APK to the Play Store."
           fi
-      - name: Build APK (arm64-v8a)
-        env:
-          XDOTS_STORE_PASSWORD: ${{ secrets.XDOTS_STORE_PASSWORD }}
-          XDOTS_KEY_ALIAS: ${{ secrets.XDOTS_KEY_ALIAS }}
-          XDOTS_KEY_PASSWORD: ${{ secrets.XDOTS_KEY_PASSWORD }}
-          BUILD_MODE: ${{ steps.signing.outputs.mode }}
+          echo "mode=release" >> "$GITHUB_OUTPUT"
+
+      - name: Build APK (arm64-v8a, release)
         run: |
           set +e
-          flutter build apk --"$BUILD_MODE" --target-platform android-arm64 > build.txt 2>&1
+          flutter build apk --release --target-platform android-arm64 > build.txt 2>&1
           STATUS=$?
           tail -n 120 build.txt
           if [ $STATUS -ne 0 ]; then
@@ -117,6 +129,6 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: xdots-arm64-${{ steps.signing.outputs.mode }}
-          path: build/app/outputs/flutter-apk/app-${{ steps.signing.outputs.mode }}.apk
+          name: xdots-arm64-release
+          path: build/app/outputs/flutter-apk/app-release.apk
           retention-days: 14
