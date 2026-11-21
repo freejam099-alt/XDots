@@ -188,9 +188,13 @@ class _ClaudeChatScreenState extends State<ClaudeChatScreen> {
   // Status panggilan AI.
   final ValueNotifier<String> _streamNotifier = ValueNotifier<String>('');
   Timer? _flushTimer;
+  DateTime? _lastStreamScroll;
   bool _hasShown = false;
   List<String> _pendingSources = <String>[];
   List<String> _pendingGallery = <String>[];
+
+  /// Galeri hasil pencarian gambar, tetap terlihat di paling atas area chat.
+  List<String> _topGalleryUrls = <String>[];
   double _inputH = 64;
   final GlobalKey _inputKey = GlobalKey();
   int _epoch = 0;
@@ -258,21 +262,31 @@ class _ClaudeChatScreenState extends State<ClaudeChatScreen> {
     _scrollToBottom();
   }
 
-  /// Token digabung ±45 ms: hanya bubble streaming yang dibangun ulang
-  /// (bukan seluruh list) sehingga scroll tetap mulus.
+  /// Token digabung (45 ms di awal, 100 ms setelah teks panjang): hanya bubble
+  /// streaming yang rebuild. Teks sudah dibersihkan sekali di sini supaya
+  /// stripToolMarkers tidak dipanggil dua kali tiap flush.
   void _appendToken(String token) {
     if (!mounted) return;
     _lastFailureActivity = null;
     _streamBuf += token;
     if (!_streaming) setState(() => _streaming = true);
-    _flushTimer ??= Timer(const Duration(milliseconds: 45), () {
+    final Duration gap = _streamBuf.length > 600
+        ? const Duration(milliseconds: 100)
+        : const Duration(milliseconds: 45);
+    _flushTimer ??= Timer(gap, () {
       _flushTimer = null;
       if (!mounted) return;
-      _streamNotifier.value = _streamBuf;
-      if (!_hasShown && MuseAi.stripToolMarkers(_streamBuf).isNotEmpty) {
+      final String cleaned = MuseAi.stripToolMarkers(_streamBuf);
+      _streamNotifier.value = cleaned;
+      if (!_hasShown && cleaned.isNotEmpty) {
         setState(() => _hasShown = true);
       }
-      _scrollToBottom(jump: true);
+      final DateTime now = DateTime.now();
+      if (_lastStreamScroll == null ||
+          now.difference(_lastStreamScroll!).inMilliseconds >= 120) {
+        _lastStreamScroll = now;
+        _scrollToBottom(jump: true);
+      }
     });
   }
 
@@ -305,6 +319,7 @@ class _ClaudeChatScreenState extends State<ClaudeChatScreen> {
       _streaming = false;
       _deferredFinish = false;
       _hasShown = false;
+      _lastStreamScroll = null;
     });
     _streamNotifier.value = '';
     if (text.isNotEmpty) {
@@ -442,6 +457,7 @@ class _ClaudeChatScreenState extends State<ClaudeChatScreen> {
       _hasShown = false;
       _pendingSources = <String>[];
       _pendingGallery = <String>[];
+      _topGalleryUrls = <String>[];
       _autoTitle = null;
       _titleRequested = false;
       _runModel = null;
@@ -796,11 +812,13 @@ class _ClaudeChatScreenState extends State<ClaudeChatScreen> {
     if (!known) {
       _noteTool(n, null, 'Tool tidak dikenal atau belum tersedia.',
           failed: true);
-    } else if (exa
-        ? !MuseAi.exaOn()
-        : dot
-            ? !MuseAi.dotOn()
-            : !ModelStore.toolEnabled(n)) {
+    } else if (custom
+        ? false // Status server sudah dicek saat discovery/call.
+        : exa
+            ? !MuseAi.exaOn()
+            : dot
+                ? !MuseAi.dotOn()
+                : !ModelStore.toolEnabled(n)) {
       _noteTool(n, null, 'Tool $n dinonaktifkan pengguna.', failed: true);
     } else {
       switch (n) {
@@ -887,9 +905,22 @@ class _ClaudeChatScreenState extends State<ClaudeChatScreen> {
       if (!_activeRun(id)) return;
       if (name == 'dot_search') {
         _pendingSources = MuseAi.extractSources(result);
-        _pendingGallery = DotBrowser.lastShowImages
+        final List<String> found = DotBrowser.lastShowImages
             ? List<String>.of(DotBrowser.lastImages)
             : <String>[];
+        _pendingGallery = found;
+        if (found.isNotEmpty) {
+          // Tampilkan langsung di paling atas, geser horizontal.
+          setState(() {
+            for (final String url in found) {
+              if (!_topGalleryUrls.contains(url)) _topGalleryUrls.add(url);
+            }
+            if (_topGalleryUrls.length > 20) {
+              _topGalleryUrls =
+                  _topGalleryUrls.sublist(_topGalleryUrls.length - 20);
+            }
+          });
+        }
       }
     } catch (e) {
       if (!_activeRun(id)) return;
@@ -1022,6 +1053,15 @@ class _ClaudeChatScreenState extends State<ClaudeChatScreen> {
                           Positioned.fill(
                             child: _buildList(keyboardOpen: kbOpen),
                           ),
+                          // Galeri hasil pencarian gambar: menempel di paling
+                          // atas area chat, bisa digeser horizontal.
+                          if (_topGalleryUrls.isNotEmpty && !kbOpen)
+                            Positioned(
+                              left: 0,
+                              right: 0,
+                              top: 0,
+                              child: _topGalleryCard(),
+                            ),
                           if (!widget.hideInputBar)
                             Positioned(
                               left: 0,
@@ -1097,7 +1137,10 @@ class _ClaudeChatScreenState extends State<ClaudeChatScreen> {
     final List<int> group = _activeToolIndices;
     final bool holdStream = group.length > 1 &&
         group.any((i) => _messages[i].toolStatus == ToolStatus.running);
-    if (_streaming && _hasShown && !holdStream) return _streamingBubble();
+    if (_streaming && _hasShown && !holdStream) {
+      // Isolasi repaint: markdown streaming tidak menggambar ulang scroll view.
+      return RepaintBoundary(child: _streamingBubble());
+    }
     final bool cardBusy = _messages.isNotEmpty &&
         ((_messages.last.type == MessageType.tool &&
                 _messages.last.toolStatus == ToolStatus.running) ||
@@ -1105,9 +1148,11 @@ class _ClaudeChatScreenState extends State<ClaudeChatScreen> {
                 _messages.last.toolStatus == ToolStatus.running &&
                 _messages.last.genPhase < GenPhase.done.index));
     if (_aiBusy && !cardBusy) {
-      return const Padding(
-        padding: EdgeInsets.only(bottom: 12),
-        child: TypingBubble(),
+      return const RepaintBoundary(
+        child: Padding(
+          padding: EdgeInsets.only(bottom: 12),
+          child: TypingBubble(),
+        ),
       );
     }
     return const SizedBox.shrink();
@@ -1200,6 +1245,49 @@ class _ClaudeChatScreenState extends State<ClaudeChatScreen> {
     );
   }
 
+  /// Kartu galeri kecil di puncak area chat (_HASIL dari dot_search gambar).
+  Widget _topGalleryCard() {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.fromLTRB(12, 10, 12, 6),
+      decoration: BoxDecoration(
+        color: c.surface,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [c.shadowFloat],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.photo_library_outlined, size: 16, color: c.accent),
+              const SizedBox(width: 6),
+              Text(
+                'Galeri gambar (${_topGalleryUrls.length})',
+                style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: c.textPrimary),
+              ),
+              const Spacer(),
+              GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: () => setState(() => _topGalleryUrls = <String>[]),
+                child: Padding(
+                  padding: const EdgeInsets.all(4),
+                  child: Icon(Icons.close, size: 16, color: c.textMuted),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          ImageCarousel(urls: _topGalleryUrls),
+        ],
+      ),
+    );
+  }
+
   Widget _streamingBubble() {
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
@@ -1216,8 +1304,10 @@ class _ClaudeChatScreenState extends State<ClaudeChatScreen> {
               child: ValueListenableBuilder<String>(
                 valueListenable: _streamNotifier,
                 builder: (context, v, _) => MarkdownBubble(
-                  // Markdown dirender langsung saat streaming, bukan teks mentah.
-                  text: MuseAi.stripToolMarkers(v),
+                  // Teks sudah dibersihkan di _appendToken; streaming=true
+                  // menunda syntax highlighting yang berat sampai selesai.
+                  text: v,
+                  streaming: true,
                 ),
               ),
             ),

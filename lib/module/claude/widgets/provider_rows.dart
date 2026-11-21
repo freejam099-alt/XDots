@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../ai_service.dart';
 import '../app_theme.dart';
 import '../chat_data.dart';
 import '../model_store.dart';
@@ -150,6 +151,7 @@ class _McpServiceRowState extends State<McpServiceRow> {
             GestureDetector(
               onTap: () {
                 ModelStore.removeCustomMcp(widget.id);
+                MuseAi.invalidateCustomTools();
                 setState(() {});
               },
               child: Padding(
@@ -158,12 +160,13 @@ class _McpServiceRowState extends State<McpServiceRow> {
               ),
             ),
           Switch.adaptive(
-            // Sama dengan ServerExtras & AiService: Exa aktif by default.
+            // Exa & endpoint kustom aktif by default (sama dengan AiService).
             value: ModelStore.mcpEnabled(widget.id,
-                defValue: widget.id == 'exa'),
+                defValue: widget.custom || widget.id == 'exa'),
             activeColor: c.accent,
             onChanged: (v) {
               ModelStore.setMcpEnabled(widget.id, v);
+              MuseAi.invalidateCustomTools();
               setState(() {});
             },
           ),

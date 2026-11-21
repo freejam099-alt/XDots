@@ -312,6 +312,7 @@ class _McpToggleRowState extends State<_McpToggleRow> {
             GestureDetector(
               onTap: () {
                 ModelStore.removeCustomMcp(widget.id);
+                MuseAi.invalidateCustomTools();
                 setState(() {});
               },
               child: Padding(
@@ -320,11 +321,12 @@ class _McpToggleRowState extends State<_McpToggleRow> {
               ),
             ),
           Switch.adaptive(
-            value:
-                ModelStore.mcpEnabled(widget.id, defValue: widget.id == 'exa'),
+            value: ModelStore.mcpEnabled(widget.id,
+                defValue: widget.custom || widget.id == 'exa'),
             activeColor: c.accent,
             onChanged: (v) {
               ModelStore.setMcpEnabled(widget.id, v);
+              MuseAi.invalidateCustomTools();
               setState(() {});
             },
           ),

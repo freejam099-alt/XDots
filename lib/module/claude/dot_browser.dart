@@ -1,6 +1,8 @@
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:dio/dio.dart';
+import 'package:dio/io.dart';
 
 /// Dot Browser: web search tanpa API key (port fitur "Keyless" LastChat).
 /// Gabungan banyak backend gratis dengan fallback berlapis.
@@ -56,6 +58,14 @@ class _Fetch {
 
 enum DotIntent { weather, news, sports, images, encyclopedia, general }
 
+class _DotSearchCache {
+  final String text;
+  final List<String> images;
+  final bool showImages;
+  final DateTime at;
+  const _DotSearchCache(this.text, this.images, this.showImages, this.at);
+}
+
 class DotBrowserException implements Exception {
   final String message;
   const DotBrowserException(this.message);
@@ -76,7 +86,13 @@ class DotBrowser {
       '(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
   static const String _appUa = 'Ministral/1.0 (dot-browser)';
   static const String _acceptLang = 'id-ID,id;q=0.9,en;q=0.8';
-  static const Duration _timeout = Duration(seconds: 8);
+  /// Batas per-backend. Karena semua backend jalan paralel, latency total =
+  /// backend terlama. 5 detik cukup untuk kebanyakan API publik.
+  static const Duration _timeout = Duration(seconds: 5);
+
+  /// Cache jawaban per query+intent (90 detik) supaya pencarian berulang instan.
+  static final Map<String, _DotSearchCache> _searchCache =
+      <String, _DotSearchCache>{};
 
   // ---------------------------------------------------------------- intent
 
@@ -276,13 +292,21 @@ class DotBrowser {
   }
 
   static final Dio _dio = Dio(BaseOptions(
-    connectTimeout: const Duration(seconds: 8),
-    receiveTimeout: const Duration(seconds: 12),
+    connectTimeout: const Duration(seconds: 4),
+    receiveTimeout: const Duration(seconds: 9),
     responseType: ResponseType.plain,
     followRedirects: true,
     maxRedirects: 5,
     validateStatus: (int? s) => s != null && s < 600,
-  ));
+  ))
+    // Beberapa backend dibuka bersamaan: jangan batasi keep-alive per host.
+    ..httpClientAdapter = IOHttpClientAdapter(
+      createHttpClient: () {
+        final HttpClient client = HttpClient();
+        client.maxConnectionsPerHost = 10;
+        return client;
+      },
+    );
 
   static String _uaFor(String url) {
     for (final String h in <String>[
@@ -947,18 +971,35 @@ class DotBrowser {
     if (q.isEmpty) throw const DotBrowserException('Kata kunci kosong.');
     final DotIntent intent = classify(q, topic);
 
+    // Query yang sama (AI sering mengulang dot_search) langsung dari cache.
+    final String cacheKey = '$intent|$q|$size';
+    final _DotSearchCache? cached = _searchCache[cacheKey];
+    if (cached != null &&
+        DateTime.now().difference(cached.at).inSeconds < 90) {
+      lastImages = List<String>.of(cached.images);
+      lastShowImages = cached.showImages;
+      return cached.text;
+    }
+
     Future<List<_Fetch>> firecrawlJob() async {
       if (intent == DotIntent.weather) return <_Fetch>[];
-      final _Fetch? f =
-          await _backend('Firecrawl', () => _firecrawl(q, intent, size));
+      // Backend utama diberi napas lebih panjang dari yang lain.
+      final _Fetch? f = await _backend(
+          'Firecrawl', () => _firecrawl(q, intent, size),
+          const Duration(seconds: 9));
       return f == null ? <_Fetch>[] : <_Fetch>[f];
     }
 
     Future<List<_Fetch>> weatherJob() async {
       if (intent != DotIntent.weather) return <_Fetch>[];
-      final _Fetch? om = await _backend('Open-Meteo', () => _openMeteo(q));
+      // Jalankan dua sumber cuaca bersamaan (sebelumnya berurutan).
+      final List<_Fetch?> r = await Future.wait<_Fetch?>(<Future<_Fetch?>>[
+        _backend<_Fetch>('Open-Meteo', () => _openMeteo(q)),
+        _backend<_Fetch>('wttr', () => _wttr(q)),
+      ]);
+      final _Fetch? om = r[0];
       if (om != null && om.useful) return <_Fetch>[om];
-      final _Fetch? w = await _backend('wttr', () => _wttr(q));
+      final _Fetch? w = r[1];
       return w != null && w.useful ? <_Fetch>[w] : <_Fetch>[];
     }
 
@@ -989,7 +1030,7 @@ class DotBrowser {
       final List<Object?> r = await Future.wait<Object?>(<Future<Object?>>[
         _backend<List<DotItem>>('Bing', () => _bing(q)),
         _backend<List<DotItem>>(
-            'DDG', () => _ddgAll(q), const Duration(seconds: 14)),
+            'DDG', () => _ddgAll(q), const Duration(seconds: 8)),
         _backend<List<DotItem>>('Mojeek', () => _mojeek(q)),
         _backend<_Fetch>('Qwant Web', () => _qwant('web', q, size)),
         ency
@@ -1041,7 +1082,17 @@ class DotBrowser {
       imageJob()
     ]);
     final List<_Fetch> fetches = all.expand((List<_Fetch> e) => e).toList();
-    return _merge(q, intent, size, fetches);
+    final String result = _merge(q, intent, size, fetches);
+    _searchCache[cacheKey] = _DotSearchCache(
+      result,
+      List<String>.of(lastImages),
+      lastShowImages,
+      DateTime.now(),
+    );
+    if (_searchCache.length > 30) {
+      _searchCache.remove(_searchCache.keys.first);
+    }
+    return result;
   }
 
   static String _merge(

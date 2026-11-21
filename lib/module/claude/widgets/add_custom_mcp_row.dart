@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../ai_service.dart';
 import '../app_theme.dart';
 import '../model_store.dart';
 import 'vector_icons.dart';
@@ -32,6 +33,8 @@ class _AddCustomMcpRowState extends State<AddCustomMcpRow> {
     final String value = _controller.text.trim();
     if (value.isEmpty) return;
     ModelStore.addCustomMcp(value);
+    // Endpoint baru langsung di-discovery pada chat berikutnya.
+    MuseAi.invalidateCustomTools();
     _controller.clear();
     FocusScope.of(context).unfocus();
     widget.onAdded();
@@ -61,7 +64,7 @@ class _AddCustomMcpRowState extends State<AddCustomMcpRow> {
               enableSuggestions: false,
               textInputAction: TextInputAction.done,
               decoration: InputDecoration(
-                hintText: 'Endpoint MCP manual',
+                hintText: 'label|https://endpoint/mcp',
                 hintStyle: TextStyle(fontSize: 14, color: c.textHint),
                 border: InputBorder.none,
                 enabledBorder: InputBorder.none,

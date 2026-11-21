@@ -9,6 +9,8 @@ import 'package:pull_down_button/pull_down_button.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../hive_bean/local_chat_history.dart';
+import '../claude/app_theme.dart';
+import '../claude/widgets/vector_icons.dart';
 import '../photoview_page.dart';
 
 class SettingPage extends ConsumerStatefulWidget {
@@ -33,11 +35,43 @@ class _SettingPageState extends ConsumerState<SettingPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(S.current.home_setting),
+    final AppColors c = AppColors.of(context);
+    applySystemUi(context);
+    return Theme(
+      data: Theme.of(context).copyWith(
+        cardTheme: CardTheme(
+          color: c.surface,
+          elevation: 0,
+          surfaceTintColor: Colors.transparent,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(22),
+          ),
+        ),
+        dividerTheme: DividerThemeData(
+          color: c.textMuted.withOpacity(0.15),
+          space: 1,
+        ),
+        textTheme: Theme.of(context).textTheme.apply(
+              bodyColor: c.textPrimary,
+              displayColor: c.textPrimary,
+            ),
       ),
-      body: SingleChildScrollView(
+      child: Scaffold(
+        backgroundColor: c.bgBase,
+        appBar: AppBar(
+          backgroundColor: c.bgBase,
+          surfaceTintColor: Colors.transparent,
+          elevation: 0,
+          iconTheme: IconThemeData(color: c.textPrimary),
+          title: Text(
+            S.current.home_setting,
+            style: TextStyle(
+                color: c.textPrimary, fontWeight: FontWeight.bold),
+          ),
+        ),
+        body: DecoratedBox(
+          decoration: BoxDecoration(gradient: c.bgGradientBottom),
+          child: SingleChildScrollView(
         physics: const AlwaysScrollableScrollPhysics(),
         child: Container(
           padding: EdgeInsets.only(
@@ -56,7 +90,7 @@ class _SettingPageState extends ConsumerState<SettingPage> {
                 ),
                 child: Text(
                   S.current.other_set,
-                  style: Theme.of(context).textTheme.bodySmall,
+                  style: TextStyle(fontSize: 13, color: c.textMuted),
                 ),
               ),
               Container(
@@ -83,8 +117,8 @@ class _SettingPageState extends ConsumerState<SettingPage> {
                             Padding(
                               padding: const EdgeInsets.symmetric(vertical: 5),
                               child: Consumer(builder: (context, ref, _) {
-                                return CupertinoSwitch(
-                                    applyTheme: true,
+                                return Switch.adaptive(
+                                    activeColor: AppColors.of(context).accent,
                                     value: ref.watch(autoGenerateTitleProvider),
                                     onChanged: (v) {
                                       ref.read(autoGenerateTitleProvider.notifier).change(v);
@@ -109,8 +143,8 @@ class _SettingPageState extends ConsumerState<SettingPage> {
                               Padding(
                                 padding: const EdgeInsets.symmetric(vertical: 5),
                                 child: Consumer(builder: (context, ref, _) {
-                                  return CupertinoSwitch(
-                                      applyTheme: true,
+                                  return Switch.adaptive(
+                                      activeColor: AppColors.of(context).accent,
                                       value: ref.watch(openICloudProvider),
                                       onChanged: (v) {
                                         ref.read(openICloudProvider.notifier).change(v);
@@ -155,14 +189,14 @@ class _SettingPageState extends ConsumerState<SettingPage> {
                                       Text(
                                         defaultTemperature,
                                         style: TextStyle(
-                                          color: Theme.of(context).textTheme.titleSmall?.color,
+                                          color: c.textMuted,
                                           fontSize: 15,
                                         ),
                                       ),
                                       const SizedBox(width: 5),
                                       Icon(
                                         CupertinoIcons.chevron_up_chevron_down,
-                                        color: Theme.of(context).textTheme.titleSmall?.color,
+                                        color: c.textMuted,
                                         size: 16,
                                       ),
                                     ]).click(showMenu),
@@ -212,14 +246,14 @@ class _SettingPageState extends ConsumerState<SettingPage> {
                                       Text(
                                         getLocaleNameByCode(globalLanguage),
                                         style: TextStyle(
-                                          color: Theme.of(context).textTheme.titleSmall?.color,
+                                          color: c.textMuted,
                                           fontSize: 15,
                                         ),
                                       ),
                                       const SizedBox(width: 5),
                                       Icon(
                                         CupertinoIcons.chevron_up_chevron_down,
-                                        color: Theme.of(context).textTheme.titleSmall?.color,
+                                        color: c.textMuted,
                                         size: 16,
                                       ),
                                     ]).click(showMenu),
@@ -244,7 +278,7 @@ class _SettingPageState extends ConsumerState<SettingPage> {
                 ),
                 child: Text(
                   S.current.appearance,
-                  style: Theme.of(context).textTheme.bodySmall,
+                  style: TextStyle(fontSize: 13, color: c.textMuted),
                 ),
               ),
               Container(
@@ -291,14 +325,14 @@ class _SettingPageState extends ConsumerState<SettingPage> {
                                     Text(
                                       getNameByThemeType(ref.watch(themeProvider.notifier).type.index),
                                       style: TextStyle(
-                                        color: Theme.of(context).textTheme.titleSmall?.color,
+                                        color: c.textMuted,
                                         fontSize: 15,
                                       ),
                                     ),
                                     const SizedBox(width: 5),
                                     Icon(
                                       CupertinoIcons.chevron_up_chevron_down,
-                                      color: Theme.of(context).textTheme.titleSmall?.color,
+                                      color: c.textMuted,
                                       size: 16,
                                     ),
                                   ]).click(showMenu);
@@ -376,7 +410,7 @@ class _SettingPageState extends ConsumerState<SettingPage> {
                 ),
                 child: Text(
                   S.current.feedback,
-                  style: Theme.of(context).textTheme.bodySmall,
+                  style: TextStyle(fontSize: 13, color: c.textMuted),
                 ),
               ),
               Container(
@@ -402,7 +436,7 @@ class _SettingPageState extends ConsumerState<SettingPage> {
                             ),
                             Icon(
                               CupertinoIcons.right_chevron,
-                              color: Theme.of(context).textTheme.titleSmall?.color,
+                              color: c.textMuted,
                               size: 14,
                             ),
                           ],
@@ -431,7 +465,7 @@ class _SettingPageState extends ConsumerState<SettingPage> {
                             ),
                             Icon(
                               CupertinoIcons.right_chevron,
-                              color: Theme.of(context).textTheme.titleSmall?.color,
+                              color: c.textMuted,
                               size: 14,
                             ),
                           ],
@@ -451,7 +485,7 @@ class _SettingPageState extends ConsumerState<SettingPage> {
                 ),
                 child: Text(
                   S.current.more,
-                  style: Theme.of(context).textTheme.bodySmall,
+                  style: TextStyle(fontSize: 13, color: c.textMuted),
                 ),
               ),
               Container(
@@ -490,14 +524,14 @@ class _SettingPageState extends ConsumerState<SettingPage> {
                                   const SizedBox(height: 5),
                                   Text(
                                     "Private AI Application",
-                                    style: Theme.of(context).textTheme.bodySmall,
+                                    style: TextStyle(fontSize: 13, color: c.textMuted),
                                   ),
                                 ],
                               ),
                             ),
                             Icon(
                               CupertinoIcons.right_chevron,
-                              color: Theme.of(context).textTheme.titleSmall?.color,
+                              color: c.textMuted,
                               size: 14,
                             ),
                           ],
@@ -538,14 +572,14 @@ class _SettingPageState extends ConsumerState<SettingPage> {
                                     const SizedBox(height: 5),
                                     Text(
                                       "支持作者后续开发",
-                                      style: Theme.of(context).textTheme.bodySmall,
+                                      style: TextStyle(fontSize: 13, color: c.textMuted),
                                     ),
                                   ],
                                 ),
                               ),
                               Icon(
                                 CupertinoIcons.right_chevron,
-                                color: Theme.of(context).textTheme.titleSmall?.color,
+                                color: c.textMuted,
                                 size: 14,
                               ),
                             ],
@@ -569,12 +603,14 @@ class _SettingPageState extends ConsumerState<SettingPage> {
                   child: Consumer(builder: (context, ref, _) {
                     return Text(
                       "${S.current.version}: ${ref.watch(versionProvider)}",
-                      style: Theme.of(context).textTheme.bodySmall,
+                      style: TextStyle(fontSize: 13, color: c.textMuted),
                     );
                   }),
                 ),
               ),
             ],
+          ),
+        ),
           ),
         ),
       ),
@@ -603,6 +639,7 @@ class SettingWithTitle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final AppColors c = AppColors.of(context);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       child: Column(
@@ -610,7 +647,11 @@ class SettingWithTitle extends StatelessWidget {
         children: [
           Text(
             label,
-            style: Theme.of(context).textTheme.bodySmall,
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w700,
+              color: c.textPrimary,
+            ),
           ),
           const SizedBox(height: 10),
           widget,
@@ -638,8 +679,14 @@ class SettingItem extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, ref) {
-    return Card(
-      color: ref.watch(themeProvider).unPinedBgColor(),
+    final AppColors c = AppColors.of(context);
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+      decoration: BoxDecoration(
+        color: c.surface,
+        borderRadius: BorderRadius.circular(22),
+        boxShadow: [c.shadowFloat],
+      ),
       child: Padding(
         padding: const EdgeInsets.only(left: 15, right: 15, top: 10, bottom: 10),
         child: Row(
@@ -671,9 +718,11 @@ class SettingItem extends ConsumerWidget {
                           title,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                                fontWeight: FontWeight.bold,
-                              ),
+                          style: TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w600,
+                            color: c.textPrimary,
+                          ),
                         ),
                       ),
                       if (count > 0)
@@ -683,7 +732,7 @@ class SettingItem extends ConsumerWidget {
                             " ($count)",
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: Theme.of(context).textTheme.bodySmall,
+                            style: TextStyle(fontSize: 13, color: c.textMuted),
                           ),
                         ),
                     ],
@@ -693,7 +742,7 @@ class SettingItem extends ConsumerWidget {
                     subTitle,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(fontSize: 13),
+                    style: TextStyle(fontSize: 13, color: c.textMuted),
                   ),
                 ],
               ),
@@ -701,7 +750,7 @@ class SettingItem extends ConsumerWidget {
             const SizedBox(width: 10),
             Icon(
               CupertinoIcons.right_chevron,
-              color: Theme.of(context).textTheme.titleSmall?.color,
+              color: c.textMuted,
               size: 18,
             ),
           ],
