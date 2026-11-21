@@ -1,5 +1,4 @@
 import 'package:chat_bot/base.dart';
-import 'package:chat_bot/base/components/screenshot_view.dart';
 import 'package:chat_bot/base/providers.dart';
 import 'package:chat_bot/base/theme.dart';
 import 'package:chat_bot/module/prompt/prompt_viewmodel.dart';
@@ -10,7 +9,6 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../hive_bean/local_chat_history.dart';
 import '../claude/app_theme.dart';
-import '../claude/widgets/vector_icons.dart';
 import '../photoview_page.dart';
 
 class SettingPage extends ConsumerStatefulWidget {
@@ -302,8 +300,6 @@ class _SettingPageState extends ConsumerState<SettingPage> {
                               ),
                             ),
                             Consumer(builder: (context, ref, _) {
-                              var theme = ref.watch(themeProvider);
-
                               return PullDownButton(
                                 scrollController: ScrollController(),
                                 itemBuilder: (BuildContext context) {
@@ -371,18 +367,18 @@ class _SettingPageState extends ConsumerState<SettingPage> {
                                 }),
                                 itemBuilder: (BuildContext context) {
                                   return [
-                                    const Color(0xff03DE75),
-                                    const Color(0xff3578F6),
-                                    const Color(0xff632C90),
-                                    const Color(0xff1D9BF6),
-                                    const Color(0xffFF9800),
-                                    const Color(0xffFE2E55),
+                                    const Color(0xFFFF8205),
+                                    const Color(0xFFFA500F),
+                                    const Color(0xFFFFB35C),
+                                    const Color(0xFFE2542A),
+                                    const Color(0xFF0A66D8),
+                                    const Color(0xFF00D66F),
                                   ]
                                       .map<PullDownMenuEntry>((e) => PullDownMenuItem.selectable(
                                           onTap: () {
                                             ref.watch(primaryColorProvider.notifier).change(e);
                                           },
-                                          title: e.value == const Color(0xff03DE75).value
+                                          title: e.value == const Color(0xFFFF8205).value
                                               ? S.current.default1
                                               : e.value.toRadixString(16),
                                           selected: e.value == primaryColor.value,

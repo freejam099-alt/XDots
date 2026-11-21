@@ -837,10 +837,9 @@ class MuseAi {
   /// Buat alias aman (`[A-Za-z][A-Za-z0-9_]*`) dan simpan nama aslinya.
   static String _toolAlias(String raw) {
     final String cleaned = raw.replaceAll(RegExp(r'[^A-Za-z0-9_]'), '_');
-    final String alias = cleaned.isEmpty
-        ? 'mcp_tool'
-        : (RegExp(r'^[A-Za-z]').hasMatch(cleaned) ? cleaned : 'mcp_$cleaned');
-    return alias;
+    // Selalu awali mcp_ agar tidak tabrakan dengan tool bawaan
+    // (dot_search, tools_use, create_image, dst.) di switch _runTool.
+    return 'mcp_${cleaned.isEmpty ? 'tool' : cleaned}';
   }
 
   /// Tanya `tools/list` ke tiap server MCP kustom yang aktif.
